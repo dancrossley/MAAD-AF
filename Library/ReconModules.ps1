@@ -5,7 +5,7 @@ function MAADGetAllAADUsers ($download = $false){
 
     try {
         MAADWriteProcess "Searching accounts in tenant"
-        $all_accounts = Get-AzureADUser -All $true 
+        $all_accounts = Get-EntraUser -All
         
         #Check if output is too large
         if ($download -eq $true){
@@ -30,7 +30,7 @@ function MAADGetAllAADGroups {
 
     try {
         MAADWriteProcess "Searching groups in tenant"
-        $all_groups = Get-AzureADGroup -All $true  
+        $all_groups = Get-EntraGroup -All
         # MAADWriteProcess "Found $($all_groups.Count) groups"
 
         Show-MAADOutput -large_limit 5 -output_list $all_groups -file_path ".\Outputs\AAD_Groups.txt"
@@ -71,7 +71,7 @@ function MAADGetAllServicePrincipal {
 
     try {
         MAADWriteProcess "Searching service principals in tenant"
-        $all_service_principal = Get-AzureADServicePrincipal 
+        $all_service_principal = Get-EntraServicePrincipal -All
 
         Show-MAADOutput -large_limit 10 -output_list $all_service_principal -file_path ".\Outputs\AAD_Service_Princiapls.txt"
     }
@@ -88,7 +88,7 @@ function ListAuthorizationPolicy {
 
     try {
         MAADWriteProcess "Searching authorization policies in tenant"
-        $all_auth_policy = Get-AzureADMSAuthorizationPolicy 
+        $all_auth_policy = Get-EntraAuthorizationPolicy
 
         Show-MAADOutput -large_limit 10 -output_list $all_auth_policy -file_path ".\Outputs\AAD_Authorization_Policies.txt"
     }
@@ -104,7 +104,7 @@ function MAADGetNamedLocations {
 
     try {
         MAADWriteProcess "Searching named locations in tenant"
-        $all_named_locations = Get-AzureADMSNamedLocationPolicy 
+        $all_named_locations = Get-EntraNamedLocationPolicy
 
         Show-MAADOutput -large_limit 10 -output_list $all_named_locations -file_path ".\Outputs\AAD_Named_Locations.txt"
 
@@ -128,7 +128,7 @@ function MAADGetConditionalAccessPolicies {
     try {
         MAADWriteProcess "Searching Conditional Access Policies in tenant"
 
-        $all_conditional_policy = Get-AzureADMSConditionalAccessPolicy
+        $all_conditional_policy = Get-EntraConditionalAccessPolicy
 
         MAADWriteProcess "Found $($all_conditional_policy.Count) conditional access policies"
 
@@ -185,7 +185,7 @@ function MAADGetRegisteredDevices {
         EnterAccount "`n[?] Enter account to retrieve registered devices"
         $target_account = $global:account_username
         MAADWriteProcess "Searching registered devices"
-        $user_reg_devices = Get-AzureADUserRegisteredDevice -ObjectId $target_account 
+        $user_reg_devices = Get-EntraUserRegisteredDevice -UserId $target_account -All
 
         Show-MAADOutput -large_limit 10 -output_list $user_reg_devices -file_path ".\Outputs\AAD_User_Registed_Devices.txt"
     }
@@ -256,14 +256,14 @@ function MAADGetAllDirectoryRoles {
 
     try {
         MAADWriteProcess "Searching directory roles in tenant"
-        $all_directory_roles = Get-AzureADDirectoryRole | Select-Object DisplayName, ObjectID
+        $all_directory_roles = Get-EntraDirectoryRole | Select-Object DisplayName, Id
 
         #Create custom object with all directory roles
         $seq = 1
         $directory_role_list = @()
 
         foreach ($directory_role in $all_directory_roles){
-            $directory_role_list += [PSCustomObject]@{"Seq" = $seq; "DirectoryRole" = $directory_role.DisplayName; "ObjectID" = $directory_role.ObjectID} 
+            $directory_role_list += [PSCustomObject]@{"Seq" = $seq; "DirectoryRole" = $directory_role.DisplayName; "ObjectID" = $directory_role.Id}
             $seq += 1
         }
 
@@ -281,14 +281,14 @@ function MAADGetDirectoryRoleMembers {
             #Get all directory roles in Azure AD
             Write-Host ""
             MAADWriteProcess "Finding directory roles in tenant"
-            $all_directory_roles = Get-AzureADDirectoryRole
+            $all_directory_roles = Get-EntraDirectoryRole
 
             #Create custom object with all directory roles
             $seq = 1
             $directory_role_list = @()
 
             foreach ($directory_role in $all_directory_roles){
-                $directory_role_list += [PSCustomObject]@{"seq" = $seq; "DirectoryRole" = $directory_role.DisplayName; "ObjectID" = $directory_role.ObjectID} 
+                $directory_role_list += [PSCustomObject]@{"seq" = $seq; "DirectoryRole" = $directory_role.DisplayName; "ObjectID" = $directory_role.Id}
                 $seq += 1
             }
             
@@ -303,13 +303,18 @@ function MAADGetDirectoryRoleMembers {
         $target_directory_role = ($directory_role_list |Where-Object {$_.seq -eq $user_input}).DirectoryRole
         $target_directory_role_object_id = ($directory_role_list |Where-Object {$_.seq -eq $user_input}).ObjectID
 
-        $all_members = Get-AzureADDirectoryRoleMember -ObjectId $target_directory_role_object_id
+        $all_members = Get-EntraDirectoryRoleMember -DirectoryRoleId $target_directory_role_object_id
 
         #Create custom object with all directory role members
         $directory_role_members_list = @()
 
         foreach ($directory_role_member in $all_members){
-            $directory_role_members_list += [PSCustomObject]@{"DirectoryRole" = $target_directory_role; "Member" = $directory_role_member.DisplayName; "MemberType" = $directory_role_member.UserType; "ObjectID" = $directory_role_member.ObjectID} 
+            $member_type = $directory_role_member.'@odata.type'
+            if ($member_type -notin "", $null) {
+                $member_type = $member_type -replace "#microsoft.graph\.", ""
+            }
+
+            $directory_role_members_list += [PSCustomObject]@{"DirectoryRole" = $target_directory_role; "Member" = $directory_role_member.DisplayName; "MemberType" = $member_type; "ObjectID" = $directory_role_member.Id}
         }
 
         Show-MAADOutput -large_limit 10 -output_list $directory_role_members_list -file_path ".\Outputs\AAD_Directory_Role_Members.txt"
@@ -326,20 +331,19 @@ function MAADGetDirectoryRoleMembers {
     Write-Host ""
 
     try {
-        MAADWriteProcess "Finding directory roles in tenant"
-        $all_directoryroles = Get-AzureADDirectoryRole
-    
         #Get target account
         EnterAccount ("`n[?] Enter account to recon directory roles for")
         $target_account = $global:account_username
+
+        MAADWriteProcess "Finding directory roles in tenant"
+        $all_directoryroles = Get-EntraUserRole -UserId $target_account -All
         
         $user_roles_list = @()
     
         MAADWriteProcess "Enumerating through directory roles"
     
         foreach ($role in $all_directoryroles){
-            $role_object_id = $role.ObjectId
-            if ($target_account -in (Get-AzureADDirectoryRoleMember -ObjectId $role_object_id).UserPrincipalName) {
+            if ($role.DisplayName -notin "", $null) {
                 $user_roles_list += [PSCustomObject]@{"User" = $target_account ; "DirectoryRole" = $role.DisplayName}
             }
         }
