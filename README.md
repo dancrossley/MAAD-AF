@@ -24,7 +24,7 @@ MAAD-AF is developed natively in PowerShell.
 ## Requirements
  1. Windows host
  2. PowerShell 5.1
- 3. Microsoft Entra PowerShell (`Microsoft.Entra` and `Microsoft.Entra.Beta`) for Entra ID operations
+ 3. Microsoft Entra PowerShell (`Microsoft.Entra` and `Microsoft.Entra.Beta.SignIns`) for Entra ID operations
 
 ## Authentication Notes
 - MAAD-AF now uses Microsoft Entra PowerShell for Entra ID access instead of the retired AzureAD and MSOnline modules.
