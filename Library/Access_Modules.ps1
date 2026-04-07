@@ -1,23 +1,27 @@
 function EstablishAccess ($target_service){
     Write-MAADLog "start" "EstablishAccess"
 
-    UseCredential
+    if ($target_service -in "entra", "azure_ad") {
+        UseCredential -AllowTokenOnly
+    }
+    else {
+        UseCredential
+    }
     
     switch ($target_service) {
-        "azure_ad"{AccessAzureAD $global:current_username $global:current_credentials $global:current_access_token}
+        "entra"{AccessEntra $global:current_access_token}
+        "azure_ad"{AccessEntra $global:current_access_token}
         "az"{AccessAzAccount $global:current_username $global:current_credentials $global:current_access_token}
         "exchange_online"{AccessExchangeOnline $global:current_username $global:current_credentials $global:current_access_token}
         "teams"{AccessTeams $global:current_username $global:current_credentials $global:current_access_token}
-        "msol"{AccessMsol $global:current_username $global:current_credentials $global:current_access_token}
         "sharepoint_site"{AccessSharepoint $global:current_username $global:current_credentials $global:current_access_token}
         "sharepoint_admin_center"{AccessSharepointAdmin $global:current_username $global:current_credentials $global:current_access_token}
         "ediscovery"{ConnectEdiscovery $global:current_credentials}
         Default {
-            AccessAzureAD $global:current_username $global:current_credentials $global:current_access_token
+            AccessEntra $global:current_access_token
             AccessAzAccount $global:current_username $global:current_credentials $global:current_access_token
             AccessTeams $global:current_username $global:current_credentials $global:current_access_token
             AccessExchangeOnline $global:current_username $global:current_credentials $global:current_access_token
-            AccessMsol $global:current_username $global:current_credentials $global:current_access_token
             AccessSharepoint $global:current_username $global:current_credentials $global:current_access_token
             AccessSharepointAdmin $global:current_username $global:current_credentials $global:current_access_token
             ConnectEdiscovery $global:current_credentials
@@ -29,104 +33,73 @@ function EstablishAccess ($target_service){
     }
 }
 
-function AccessAzureAD{
+function GetMAADEntraScopes {
+    return @(
+        "Application.Read.All",
+        "Application.ReadWrite.All",
+        "Directory.AccessAsUser.All",
+        "Directory.Read.All",
+        "Group.Read.All",
+        "Group.ReadWrite.All",
+        "Invitation.ReadWrite.All",
+        "Policy.Read.All",
+        "Policy.ReadWrite.AuthenticationMethod",
+        "Policy.ReadWrite.ConditionalAccess",
+        "RoleManagement.Read.Directory",
+        "RoleManagement.ReadWrite.Directory",
+        "User.Read.All",
+        "User.ReadWrite.All"
+    )
+}
+
+function GetMAADValidGraphToken ($AccessToken) {
+    if ($AccessToken -in "", $null) {
+        return $null
+    }
+
+    if (-not (TestMAADGraphAudience $global:current_access_token_audience)) {
+        MAADWriteError "Stored access token is not a Microsoft Graph token"
+        MAADWriteInfo "Re-add the token with a Microsoft Graph audience such as https://graph.microsoft.com"
+        return $null
+    }
+
+    return $AccessToken
+}
+
+function AccessEntra{
     param (
-        [Parameter(Mandatory)]$AdminUsername,
-        [Parameter(Mandatory)][PSCredential] $AdminCredential,
         $AccessToken
     )
-    ###Connect Azure AD 
-    if ($AccessToken -notin "",$null ) {
+
+    $graph_access_token = GetMAADValidGraphToken $AccessToken
+    if ($graph_access_token -notin "", $null) {
         try {
-        #Attempt token authentication  
-        Connect-AzureAD -AadAccessToken $AccessToken -AccountId $AdminUsername -ErrorAction Stop | Out-Null
-        MAADWriteSuccess "Established access -> AzureAD"
+            $secure_access_token = ConvertTo-SecureString -String $graph_access_token -AsPlainText -Force
+            Connect-Entra -AccessToken $secure_access_token -NoWelcome -ErrorAction Stop | Out-Null
+            MAADWriteSuccess "Established access -> Entra"
+            return
         }
         catch {
             MAADWriteError "Token authentication failed"
-            MAADWriteProcess "Attempting basic authentication"
-            try {
-                #Attempt basic authentication
-                Connect-AzureAD -Credential $AdminCredential -WarningAction SilentlyContinue -ErrorAction Stop| Out-Null 
-                MAADWriteSuccess "Established access -> AzureAD"
-            }
-            catch [Microsoft.Open.Azure.AD.CommonLibrary.AadAuthenticationFailedException]{
-                #Check if account has MFA requirements for authentication
-                if ($null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception.Message)) {
-                    MAADWriteInfo "MFA required for authentication"
-                    MAADWriteProcess "Launching interactive authentication window to continue"
-                    try {
-                        #Attempt interactive authentication  
-                        Connect-AzureAD -ErrorAction Stop | Out-Null
-                        MAADWriteSuccess "Established access -> AzureAD"
-                    }
-                    catch {
-                        MAADWriteError "Invalid credentials"
-                    }
-                }
-                if ($null -ne (Select-String -Pattern "invalid username or password" -InputObject $_.Exception.Message)) {
-                    MAADWriteError "Invalid credentials"
-                }
-            }
-            catch [System.Exception]{
-                if ($null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception.InnerException) -or $null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception)) {
-                    MAADWriteInfo "Account requires interactive MFA for authentication"
-                    MAADWriteProcess "Launching interactive authentication window to continue"
-                    try {
-                        #Attempt interactive authentication  
-                        Connect-AzureAD -ErrorAction Stop | Out-Null
-                        MAADWriteSuccess "Established access -> AzureAD"
-                    }
-                    catch {
-                        MAADWriteError "Invalid credentials"
-                    }
-                }
-            }
-            catch {
-                MAADWriteError "Failed to establish access -> AzureAD"
-            }
+            MAADWriteInfo "Stored access tokens must target Microsoft Graph and may need to be refreshed when they expire"
         }
     }
-    else {
+
+    MAADWriteInfo "Entra access now uses Microsoft Entra PowerShell with Microsoft Graph permissions"
+    MAADWriteProcess "Launching interactive Entra authentication window to continue"
+
+    try {
+        Connect-Entra -Scopes (GetMAADEntraScopes) -NoWelcome -ErrorAction Stop | Out-Null
+        MAADWriteSuccess "Established access -> Entra"
+    }
+    catch {
+        MAADWriteInfo "Browser-based Entra authentication was not available. Switching to device code authentication"
         try {
-            #Attempt basic authentication
-            Connect-AzureAD -Credential $AdminCredential -WarningAction SilentlyContinue -ErrorAction Stop| Out-Null 
-            MAADWriteSuccess "Established access -> AzureAD"  
-        }
-        catch [Microsoft.Open.Azure.AD.CommonLibrary.AadAuthenticationFailedException]{
-            #Check if account has MFA requirements for authentication
-            if ($null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception.Message)) {
-                MAADWriteInfo "MFA required for authentication"
-                MAADWriteProcess "Launching interactive authentication window to continue"
-                try {
-                    #Attempt interactive authentication  
-                    Connect-AzureAD -ErrorAction Stop | Out-Null
-                    MAADWriteSuccess "Established access -> AzureAD"
-                }
-                catch {
-                    MAADWriteError "Invalid credentials"
-                }
-            }
-            if ($null -ne (Select-String -Pattern "invalid username or password" -InputObject $_.Exception.Message)) {
-                MAADWriteError "Invalid credentials"
-            }
-        }
-        catch [System.Exception]{
-            if ($null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception.InnerException) -or $null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception)) {
-                MAADWriteInfo "MFA required for authentication"
-                MAADWriteProcess "Launching interactive authentication window to continue"
-                try {
-                    #Attempt interactive authentication  
-                    Connect-AzureAD -ErrorAction Stop | Out-Null
-                    MAADWriteSuccess "Established access -> AzureAD"
-                }
-                catch {
-                    MAADWriteError "Invalid credentials"
-                }
-            }
+            Connect-Entra -UseDeviceCode -Scopes (GetMAADEntraScopes) -NoWelcome -ErrorAction Stop | Out-Null
+            MAADWriteSuccess "Established access -> Entra"
         }
         catch {
-            MAADWriteError "Failed to establish access -> AzureAD"
+            MAADWriteError "Failed to establish access -> Entra"
         }
     }
 }
@@ -444,104 +417,12 @@ function AccessExchangeOnline {
 
 function AccessMsol {
     param (
-        [Parameter(Mandatory)]$AdminUsername,
-        [Parameter(Mandatory)][PSCredential] $AdminCredential,
+        $AdminUsername,
+        [PSCredential] $AdminCredential,
         $AccessToken
     )
-    ###Connect Msol
-    if ($AccessToken -notin "",$null) {
-        try {
-        #Attempt token authentication  
-        Connect-MsolService -AdGraphAccessToken $AccessToken -ErrorAction Stop | Out-Null
-        MAADWriteSuccess "Established access -> Msol"
-        }
-        catch {
-            MAADWriteError "Token authentication failed"
-            MAADWriteProcess "Attempting basic authentication"
-            try {
-                #Attempt basic authentication
-                Connect-MsolService -Credential $AdminCredential -WarningAction SilentlyContinue -ErrorAction Stop| Out-Null 
-                MAADWriteSuccess "Established access -> Msol"
-            }
-            catch [Microsoft.Open.Azure.AD.CommonLibrary.AadAuthenticationFailedException]{
-                #Check if account has MFA requirements for authentication
-                if ($null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception.Message)) {
-                    MAADWriteInfo "MFA required for authentication"
-                    MAADWriteProcess "Launching interactive authentication window to continue"
-                    try {
-                        #Attempt interactive authentication  
-                        Connect-MsolService -ErrorAction Stop | Out-Null
-                        MAADWriteSuccess "Established access -> Msol"
-                    }
-                    catch {
-                        MAADWriteError "Invalid credentials"
-                    }
-                }
-                if ($null -ne (Select-String -Pattern "invalid username or password" -InputObject $_.Exception.Message)) {
-                    MAADWriteError "Invalid credentials"
-                }
-            }
-            catch [System.Exception]{
-                if ($null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception.InnerException) -or $null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception)) {
-                    MAADWriteInfo "MFA required for authentication"
-                    MAADWriteProcess "Launching interactive authentication window to continue"
-                    try {
-                        #Attempt interactive authentication  
-                        Connect-MsolService -ErrorAction Stop | Out-Null
-                        MAADWriteSuccess "Established access -> Msol"
-                    }
-                    catch {
-                        MAADWriteError "Invalid credentials"
-                    }
-                }
-            }
-            catch {
-                MAADWriteError "Failed to establish access -> Msol"
-            }
-        }
-    }
-    else {
-        try {
-            #Attempt basic authentication
-            Connect-MsolService -Credential $AdminCredential -WarningAction SilentlyContinue -ErrorAction Stop| Out-Null 
-            MAADWriteSuccess "Established access -> Msol"  
-        }
-        catch [Microsoft.Open.Azure.AD.CommonLibrary.AadAuthenticationFailedException]{
-            #Check if account has MFA requirements for authentication
-            if ($null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception.Message)) {
-                MAADWriteInfo "MFA required for authentication"
-                MAADWriteProcess "Launching interactive authentication window to continue"
-                try {
-                    #Attempt interactive authentication  
-                    Connect-MsolService -ErrorAction Stop | Out-Null
-                    MAADWriteSuccess "Established access -> Msol"
-                }
-                catch {
-                    MAADWriteError "Invalid credentials"
-                }
-            }
-            if ($null -ne (Select-String -Pattern "invalid username or password" -InputObject $_.Exception.Message)) {
-                MAADWriteError "Invalid credentials"
-            }
-        }
-        catch [System.Exception]{
-            if ($null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception.InnerException) -or $null -ne (Select-String -Pattern "multi-factor authentication" -InputObject $_.Exception)) {
-                MAADWriteInfo "MFA required for authentication"
-                MAADWriteProcess "Launching interactive authentication window to continue"
-                try {
-                    #Attempt interactive authentication  
-                    Connect-MsolService -ErrorAction Stop | Out-Null
-                    MAADWriteSuccess "Established access -> Msol"
-                }
-                catch {
-                    MAADWriteError "Invalid credentials"
-                }
-            }
-        }
-        catch {
-            MAADWriteError "Failed to establish access -> Msol"
-        }
-    }
+    MAADWriteInfo "MSOnline access has been retired. Reusing the Entra session instead."
+    AccessEntra $AccessToken
 }
 
 function AccessSharepoint {
@@ -858,7 +739,7 @@ function terminate_connection {
 
     MAADWriteProcess "Closing all active connections"
     try {
-        Disconnect-AzureAD -Confirm:$false | Out-Null
+        Disconnect-Entra | Out-Null
     }
     catch {
         #do nothing
@@ -890,12 +771,6 @@ function terminate_connection {
     }
     try {
         Disconnect-SPOService | Out-Null
-    }
-    catch {
-        #do nothing
-    }
-    try {
-        [Microsoft.Online.Administration.Automation.ConnectMsolService]::ClearUserSessionState() | Out-Null
     }
     catch {
         #do nothing

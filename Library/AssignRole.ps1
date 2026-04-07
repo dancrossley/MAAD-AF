@@ -7,14 +7,14 @@ function AssignRole ($target_object_type){
     #Set a target account
     EnterAccount "`n[?] Enter account to assign role (user@org.com)"
     $target_account = $global:account_username
-    $target_id = (Get-AzureADUser -SearchString $target_account).ObjectId
+    $target_id = (Get-EntraUser -UserId $target_account).Id
     }
 
     elseif ($target_object_type -eq "group"){
         #Set a target group
         EnterGroup("`n[?] Enter target group name to assign role (press [enter] to find groups)")
         $target_group = $global:group_name
-        $target_id = (Get-AzureADMSGroup -SearchString $target_group).Id        
+        $target_id = (Get-EntraGroup -SearchString $target_group).Id        
     }
 
     else{
@@ -23,14 +23,14 @@ function AssignRole ($target_object_type){
 
     EnterRole "`n[?] Enter role name to assign (press [enter] to find roles)"
     $target_role = $global:role_name
-    $role_definition = Get-AzureADMSRoleDefinition -Filter "displayName eq '$target_role'"
+    $role_definition = Get-EntraDirectoryRoleDefinition -Filter "displayName eq '$target_role'"
     $role_definition_id = $role_definition.Id
     
     #Assign role to target account
     try {
         MAADWriteProcess "Attempting to assign role"
         MAADWriteProcess "$target_role -> $target_account"
-        $role_assignment = New-AzureADMSRoleAssignment -DirectoryScopeId '/' -RoleDefinitionId $role_definition_id -PrincipalId $target_id
+        $role_assignment = New-EntraDirectoryRoleAssignment -DirectoryScopeId '/' -RoleDefinitionId $role_definition_id -PrincipalId $target_id
         Start-Sleep -Seconds 10
         MAADWriteSuccess "Role Assigned"
         $allow_undo = $true
@@ -44,7 +44,7 @@ function AssignRole ($target_object_type){
 function AssignManagementRole {
     EnterAccount "`n[?] Enter account to assign role (user@org.com)"
     $target_account = $global:account_username
-    $target_id = (Get-AzureADUser -SearchString $target_account).ObjectId
+    $target_id = (Get-EntraUser -UserId $target_account).Id
 
 
     EnterManagementRole "`n[?] Enter role name to assign (press [enter] to find roles)"
