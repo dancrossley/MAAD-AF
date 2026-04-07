@@ -41,7 +41,7 @@ function GetMAADEntraScopes {
         "Directory.Read.All",
         "Group.Read.All",
         "Group.ReadWrite.All",
-        "Invitation.ReadWrite.All",
+        "User.Invite.All",
         "Policy.Read.All",
         "Policy.ReadWrite.AuthenticationMethod",
         "Policy.ReadWrite.ConditionalAccess",
