@@ -1,7 +1,7 @@
 ###Basic functions
 function RequiredModules {
     ###This function checks for required modules by MAAD and Installs them if unavailable. Some modules have specific version requirements specified in the dictionary values
-    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Beta" = "";"ExchangeOnlineManagement" = "3.2.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Identity.SignIns" = "2.6.1";"Microsoft.Graph.Applications" = "2.6.1";"Microsoft.Graph.Users" = "2.6.1";"Microsoft.Graph.Groups" = "2.6.1"}
+    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.2.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
     $missing_modules = @{}
     $installed_modules = @{}
 
@@ -117,7 +117,7 @@ function InitializeMAADEntraCompatibility {
     }
 
     try {
-        Import-Module -Name Microsoft.Entra.Beta -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+        Import-Module -Name Microsoft.Entra.Beta.SignIns -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
     }
     catch {
         # Do nothing.
