@@ -1,11 +1,36 @@
 #Reconnaissance modules
+function GetMAADReconErrorMessage ($ErrorRecord) {
+    if ($null -eq $ErrorRecord) {
+        return "Unknown error"
+    }
+
+    $messages = @()
+    $current_exception = $ErrorRecord.Exception
+
+    while ($current_exception -ne $null) {
+        if ($current_exception.Message -notin "", $null) {
+            if ($messages -notcontains $current_exception.Message) {
+                $messages += $current_exception.Message
+            }
+        }
+
+        $current_exception = $current_exception.InnerException
+    }
+
+    if ($messages.Count -eq 0) {
+        return $ErrorRecord.ToString()
+    }
+
+    return ($messages -join " | ")
+}
+
 function MAADGetAllAADUsers ($download = $false){
     #Search all accounts
     Write-Host ""
 
     try {
         MAADWriteProcess "Searching accounts in tenant"
-        $all_accounts = Get-EntraUser -All
+        $all_accounts = Get-EntraUser -All -ErrorAction Stop
         
         #Check if output is too large
         if ($download -eq $true){
@@ -20,6 +45,7 @@ function MAADGetAllAADUsers ($download = $false){
     }
     catch {
         MAADWriteError "Failed to search accounts in tenant"
+        MAADWriteError (GetMAADReconErrorMessage $_)
     }
     MAADPause
 }
