@@ -24,6 +24,26 @@ function GetMAADReconErrorMessage ($ErrorRecord) {
     return ($messages -join " | ")
 }
 
+function InitializeMAADEntraReconModules {
+    param (
+        [switch]$Applications,
+        [switch]$Groups,
+        [switch]$SignIns
+    )
+
+    if ($Applications) {
+        Import-Module -Name Microsoft.Entra.Applications -ErrorAction Stop | Out-Null
+    }
+
+    if ($Groups) {
+        Import-Module -Name Microsoft.Entra.Groups -ErrorAction Stop | Out-Null
+    }
+
+    if ($SignIns) {
+        Import-Module -Name Microsoft.Entra.SignIns -ErrorAction Stop | Out-Null
+    }
+}
+
 function MAADGetAllAADUsers ($download = $false){
     #Search all accounts
     Write-Host ""
@@ -55,14 +75,16 @@ function MAADGetAllAADGroups {
     Write-Host ""
 
     try {
+        InitializeMAADEntraReconModules -Groups
         MAADWriteProcess "Searching groups in tenant"
-        $all_groups = Get-EntraGroup -All
+        $all_groups = Get-EntraGroup -All -ErrorAction Stop
         # MAADWriteProcess "Found $($all_groups.Count) groups"
 
         Show-MAADOutput -large_limit 5 -output_list $all_groups -file_path ".\Outputs\AAD_Groups.txt"
     }
     catch {
         MAADWriteError "Failed to search groups in tenant"
+        MAADWriteError (GetMAADReconErrorMessage $_)
     }
     MAADPause
 }
@@ -96,13 +118,15 @@ function MAADGetAllServicePrincipal {
     Write-Host ""
 
     try {
+        InitializeMAADEntraReconModules -Applications
         MAADWriteProcess "Searching service principals in tenant"
-        $all_service_principal = Get-EntraServicePrincipal -All
+        $all_service_principal = Get-EntraServicePrincipal -All -ErrorAction Stop
 
         Show-MAADOutput -large_limit 10 -output_list $all_service_principal -file_path ".\Outputs\AAD_Service_Princiapls.txt"
     }
     catch {
         MAADWriteError "Failed to find service principals in tenant"
+        MAADWriteError (GetMAADReconErrorMessage $_)
     }
     MAADPause
 }
@@ -113,13 +137,15 @@ function ListAuthorizationPolicy {
     Write-Host ""
 
     try {
+        InitializeMAADEntraReconModules -SignIns
         MAADWriteProcess "Searching authorization policies in tenant"
-        $all_auth_policy = Get-EntraAuthorizationPolicy
+        $all_auth_policy = Get-EntraAuthorizationPolicy -ErrorAction Stop
 
         Show-MAADOutput -large_limit 10 -output_list $all_auth_policy -file_path ".\Outputs\AAD_Authorization_Policies.txt"
     }
     catch {
         MAADWriteError "Failed to find authorization policies in tenant"
+        MAADWriteError (GetMAADReconErrorMessage $_)
     }
     MAADPause
 }
@@ -129,8 +155,9 @@ function MAADGetNamedLocations {
     Write-Host ""
 
     try {
+        InitializeMAADEntraReconModules -SignIns
         MAADWriteProcess "Searching named locations in tenant"
-        $all_named_locations = Get-EntraNamedLocationPolicy
+        $all_named_locations = Get-EntraNamedLocationPolicy -ErrorAction Stop
 
         Show-MAADOutput -large_limit 10 -output_list $all_named_locations -file_path ".\Outputs\AAD_Named_Locations.txt"
 
@@ -143,6 +170,7 @@ function MAADGetNamedLocations {
     }
     catch {
         MAADWriteError "Failed to find Named Locations in tenant"
+        MAADWriteError (GetMAADReconErrorMessage $_)
     }
     MAADPause
 }
@@ -152,9 +180,10 @@ function MAADGetConditionalAccessPolicies {
     Write-Host ""
 
     try {
+        InitializeMAADEntraReconModules -SignIns
         MAADWriteProcess "Searching Conditional Access Policies in tenant"
 
-        $all_conditional_policy = Get-EntraConditionalAccessPolicy
+        $all_conditional_policy = Get-EntraConditionalAccessPolicy -ErrorAction Stop
 
         MAADWriteProcess "Found $($all_conditional_policy.Count) conditional access policies"
 
@@ -199,6 +228,7 @@ function MAADGetConditionalAccessPolicies {
     }
     catch {
         MAADWriteError "Failed to find Conditional Access Policies in tenant"
+        MAADWriteError (GetMAADReconErrorMessage $_)
     }
     MAADPause
 }

@@ -26,7 +26,7 @@ function InitializeMAADPowerShellLimits {
 function RequiredModules {
     ###This function checks for required modules by MAAD and Installs them if unavailable. Some modules have specific version requirements specified in the dictionary values
     InitializeMAADPowerShellLimits
-    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.2.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
+    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.2.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
     $missing_modules = @{}
     $installed_modules = @{}
 
@@ -139,6 +139,27 @@ function InitializeMAADEntraCompatibility {
     }
     catch {
         # Do nothing. Dependency checks or module autoload can handle installation state later.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.Applications -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.Groups -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.SignIns -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
     }
 
     try {
