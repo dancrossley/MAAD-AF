@@ -99,94 +99,112 @@ function AccessInfo{
     if ($access_status_ediscovery) {$connected_modules += "Compliance Center"}
     Write-Host ""
 
-    try {
-        #Session Info
+    #Session Info
+    $tenant_id = $null
+    $logged_in_user = $null
+    $account_role_name = @()
+    $account_group_name = @()
+    $account_owned_objects_name = @()
+
+    if ($access_status_entra) {
         $tenant_id = $entra_session_info.TenantId
         $logged_in_user = $entra_session_info.Account
-        $logged_in_user_id = (Get-EntraUser -UserId $logged_in_user -ErrorAction Stop).Id
 
-        #Get all Memberships
-        $account_membership = Get-AzureADUserMembership -ObjectId $logged_in_user_id
-        #Get all owned objects
-        $account_owned_objects = Get-AzureADUserOwnedObject -ObjectId $logged_in_user_id
-
-        $account_role_name = @()
-        $account_group_name = @()
-        $account_owned_objects_name = @()
-
-        foreach ($membership in $account_membership){
-            if ($membership.ObjectType -eq "Role"){
-                $account_role_name += $membership.DisplayName
-            }
-            if ($membership.ObjectType -eq "Group"){
-                $account_group_name += $membership.DisplayName
+        try {
+            $account_roles = Get-EntraUserRole -UserId $logged_in_user -All -ErrorAction Stop
+            foreach ($role in $account_roles) {
+                if ($role.DisplayName -notin "", $null) {
+                    $account_role_name += $role.DisplayName
+                }
             }
         }
+        catch {}
 
-        foreach ($objects in $account_owned_objects){
-            $account_owned_objects_name += $objects.DisplayName
+        try {
+            $account_membership = Get-EntraUserMembership -UserId $logged_in_user -All -ErrorAction Stop
+            foreach ($membership in $account_membership) {
+                if ($membership.'@odata.type' -eq "#microsoft.graph.group" -and $membership.DisplayName -notin "", $null) {
+                    $account_group_name += $membership.DisplayName
+                }
+            }
         }
+        catch {}
 
-        #Display access info
-        MAADWriteInfo "Tenant"
+        try {
+            $account_owned_objects = Get-EntraUserOwnedObject -UserId $logged_in_user -All -ErrorAction Stop
+            foreach ($object in $account_owned_objects) {
+                if ($object.DisplayName -notin "", $null) {
+                    $account_owned_objects_name += $object.DisplayName
+                }
+            }
+        }
+        catch {}
+    }
+
+    #Display access info
+    MAADWriteInfo "Tenant"
+    if ($tenant_id -notin "", $null) {
         MAADWriteProcess "$tenant_id"
-        Write-Host ""
-        Start-Sleep -Seconds 1
+    }
+    else {
+        MAADWriteError "No Access"
+    }
+    Write-Host ""
+    Start-Sleep -Seconds 1
 
-        MAADWriteInfo "User"
+    MAADWriteInfo "User"
+    if ($logged_in_user -notin "", $null) {
         MAADWriteProcess "$logged_in_user"
-        Write-Host ""
-        Start-Sleep -Seconds 1
+    }
+    else {
+        MAADWriteError "No Access"
+    }
+    Write-Host ""
+    Start-Sleep -Seconds 1
 
-        MAADWriteInfo "Connected Services/ PS Modules"
+    MAADWriteInfo "Connected Services/ PS Modules"
+    if ($connected_modules.Count -gt 0) {
         foreach ($connection in $connected_modules){
             MAADWriteProcess $connection
         }
-        Write-Host ""
-        Start-Sleep -Seconds 1
+    }
+    else {
+        MAADWriteError "No Access"
+    }
+    Write-Host ""
+    Start-Sleep -Seconds 1
 
-        MAADWriteInfo "Roles Assigned"
+    MAADWriteInfo "Roles Assigned"
+    if ($account_role_name.Count -gt 0) {
         foreach ($role in $account_role_name){
             MAADWriteProcess $role
         }
-        Write-Host ""
-        Start-Sleep -Seconds 1
+    }
+    else {
+        MAADWriteError "No Access"
+    }
+    Write-Host ""
+    Start-Sleep -Seconds 1
 
-        MAADWriteInfo "Group Membership"
+    MAADWriteInfo "Group Membership"
+    if ($account_group_name.Count -gt 0) {
         foreach ($group in $account_group_name){
             MAADWriteProcess $group
         }
-        Write-Host ""
-        Start-Sleep -Seconds 1
+    }
+    else {
+        MAADWriteError "No Access"
+    }
+    Write-Host ""
+    Start-Sleep -Seconds 1
 
-        MAADWriteInfo "Owner of"
+    MAADWriteInfo "Owner of"
+    if ($account_owned_objects_name.Count -gt 0) {
         foreach ($object in $account_owned_objects_name){
             MAADWriteProcess $object
         }
     }
-    catch {
-        #Display access info
-        MAADWriteInfo "Tenant"
-        MAADWriteError "No Access"
-        Write-Host ""
-
-        MAADWriteInfo "User"
-        MAADWriteError "No Access"
-        Write-Host ""
-
-        MAADWriteInfo "Connected Services/ PS Modules"
-        MAADWriteError "No Access"
-        Write-Host ""
-
-        MAADWriteInfo "Roles"
-        MAADWriteError "No Access"
-        Write-Host ""
-
-        MAADWriteInfo "Group Membership"
-        MAADWriteError "No Access"
-        Write-Host ""
-
-        MAADWriteInfo "Owner of"
+    else {
         MAADWriteError "No Access"
     }
 
