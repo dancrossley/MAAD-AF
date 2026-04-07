@@ -66,6 +66,31 @@ function GetMAADValidGraphToken ($AccessToken) {
     return $AccessToken
 }
 
+function GetMAADExceptionMessage ($ErrorRecord) {
+    if ($null -eq $ErrorRecord) {
+        return "Unknown error"
+    }
+
+    $messages = @()
+    $current_exception = $ErrorRecord.Exception
+
+    while ($current_exception -ne $null) {
+        if ($current_exception.Message -notin "", $null) {
+            if ($messages -notcontains $current_exception.Message) {
+                $messages += $current_exception.Message
+            }
+        }
+
+        $current_exception = $current_exception.InnerException
+    }
+
+    if ($messages.Count -eq 0) {
+        return $ErrorRecord.ToString()
+    }
+
+    return ($messages -join " | ")
+}
+
 function AccessEntra{
     param (
         $AccessToken
@@ -81,6 +106,7 @@ function AccessEntra{
         }
         catch {
             MAADWriteError "Token authentication failed"
+            MAADWriteError (GetMAADExceptionMessage $_)
             MAADWriteInfo "Stored access tokens must target Microsoft Graph and may need to be refreshed when they expire"
         }
     }
@@ -93,6 +119,7 @@ function AccessEntra{
         MAADWriteSuccess "Established access -> Entra"
     }
     catch {
+        MAADWriteError (GetMAADExceptionMessage $_)
         MAADWriteInfo "Browser-based Entra authentication was not available. Switching to device code authentication"
         try {
             Connect-Entra -UseDeviceCode -Scopes (GetMAADEntraScopes) -NoWelcome -ErrorAction Stop | Out-Null
@@ -100,6 +127,7 @@ function AccessEntra{
         }
         catch {
             MAADWriteError "Failed to establish access -> Entra"
+            MAADWriteError (GetMAADExceptionMessage $_)
         }
     }
 }
