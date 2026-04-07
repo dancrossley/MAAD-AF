@@ -32,7 +32,7 @@ MAAD-AF is developed natively in PowerShell.
 - MAAD-AF now uses Microsoft Entra PowerShell instead of the retired AzureAD and MSOnline modules.
 - On first launch, MAAD-AF will check for and install the required Entra, Graph, and service-specific PowerShell modules.
 - Windows PowerShell 5.1 is still supported. MAAD-AF raises PowerShell session limits automatically to accommodate larger Entra and Graph modules.
-- If you already have older Microsoft Graph module versions installed side-by-side, module import conflicts can occur. Removing stale Graph versions before first run can help avoid Entra cmdlet load failures.
+- If you already have older Microsoft Graph PowerShell modules installed side-by-side, MAAD-AF can load an incompatible mix of Graph and Entra dependencies. This may cause import failures, missing-type errors, or method-not-found errors when Entra-backed commands run. Before first use, it can help to check for multiple installed versions of key Graph modules such as `Microsoft.Graph.Authentication`, `Microsoft.Graph.Users`, `Microsoft.Graph.Groups`, `Microsoft.Graph.Applications`, and `Microsoft.Graph.Identity.SignIns`, then remove any stale copies from an elevated Windows PowerShell 5.1 session. If PowerShell reports that a module is in use, close all PowerShell or Windows Terminal sessions and retry from a fresh elevated window before launching MAAD-AF.
 
 ## Authentication Notes
 - Entra access uses interactive or device-code authentication by default.
