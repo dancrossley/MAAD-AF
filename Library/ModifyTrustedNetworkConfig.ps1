@@ -25,8 +25,10 @@ function ModifyTrustedNetworkConfig {
     
     #Create trusted network policy
     try {
+        $ip_range = New-Object -TypeName Microsoft.Open.MSGraph.Model.IpRange
+        $ip_range.CidrAddress = "$ip_addr/32"
         MAADWriteProcess "Deploying policy -> $trusted_policy_name"
-        $trusted_nw = New-AzureADMSNamedLocationPolicy -OdataType "#microsoft.graph.ipNamedLocation" -DisplayName $trusted_policy_name -IsTrusted $true -IpRanges "$ip_addr/32" -ErrorAction Stop
+        $trusted_nw = New-EntraNamedLocationPolicy -OdataType "#microsoft.graph.ipNamedLocation" -DisplayName $trusted_policy_name -IsTrusted $true -IpRanges $ip_range -ErrorAction Stop
         MAADWriteProcess "Trusted network policy created"
         MAADWriteProcess "Retrieving details of deployed policy"
         MAADWriteProcess "Policy Name -> $($trusted_nw.DisplayName)"
@@ -47,9 +49,9 @@ function ModifyTrustedNetworkConfig {
         if ($user_confirm -notin "No","no","N","n") {
             try {
                 MAADWriteProcess "Marking IP as untrusted"
-                Set-AzureADMSNamedLocationPolicy -OdataType "#microsoft.graph.ipNamedLocation" -PolicyId $trusted_nw.Id -IsTrusted $false
+                Set-EntraNamedLocationPolicy -OdataType "#microsoft.graph.ipNamedLocation" -PolicyId $trusted_nw.Id -DisplayName $trusted_nw.DisplayName -IsTrusted $false -IpRanges $trusted_nw.IpRanges
                 MAADWriteProcess "Removing Trusted Network Policy"
-                Remove-AzureADMSNamedLocationPolicy -PolicyId $trusted_nw.Id
+                Remove-EntraNamedLocationPolicy -PolicyId $trusted_nw.Id
                 MAADWriteSuccess "Deleted New Trusted Location Policy"
             }
             catch {

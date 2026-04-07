@@ -4,11 +4,16 @@ function AccessInfo{
     MAADWriteProcess "Fetching current access info"
 
     try {
-        $azure_ad_session_info = Get-AzureADCurrentSessionInfo -ErrorAction Stop 
-        $access_status_azure_ad = $true
+        $entra_session_info = Get-EntraContext -ErrorAction Stop
+        if ($null -eq $entra_session_info) {
+            $access_status_entra = $false
+        }
+        else {
+            $access_status_entra = $true
+        }
     }
     catch {
-        $access_status_azure_ad = $false
+        $access_status_entra = $false
     }
 
     try {
@@ -19,7 +24,6 @@ function AccessInfo{
         else {
             $access_status_az = $true
         }
-        #$az_context.Account.Id
     }
     catch {
         $access_status_az = $false
@@ -28,7 +32,6 @@ function AccessInfo{
     try {
         $teams_session_info = Get-AssociatedTeam -ErrorAction Stop
         $access_status_teams = $true
-        #$connected_teams = $teams_session_info.DisplayName
     }
     catch {
         $access_status_teams = $false
@@ -47,19 +50,9 @@ function AccessInfo{
                 }
             }
         }
-        #$exchangle_online_session_info..UserPrincipalname
     }
     catch {
         $access_status_exchange_online = $false
-    }
-
-    try {
-        $msol_session_info = Get-MsolDomain -ErrorAction Stop
-        $access_status_msol = $true
-        #Get-MsolUserRole
-    }
-    catch {
-        $access_status_msol = $false
     }
 
     try {
@@ -97,11 +90,10 @@ function AccessInfo{
     }
 
     $connected_modules = @()
-    if ($access_status_azure_ad) {$connected_modules += "Azure AD"}
+    if ($access_status_entra) {$connected_modules += "Entra"}
     if ($access_status_az) {$connected_modules += "Az"}
     if ($access_status_exchange_online) {$connected_modules += "Exchange Online"}
     if ($access_status_teams) {$connected_modules += "Teams"}
-    if ($access_status_msol) {$connected_modules += "Msol"}
     if ($access_status_sp_site) {$connected_modules += "Sharepoint Site"}
     if ($access_status_spo_admin) {$connected_modules += "Sharepoint Admin"}
     if ($access_status_ediscovery) {$connected_modules += "Compliance Center"}
@@ -109,11 +101,9 @@ function AccessInfo{
 
     try {
         #Session Info
-        $tenant_id = $azure_ad_session_info.TenantId.Guid
-
-        $logged_in_user = $azure_ad_session_info.Account.Id
-
-        $logged_in_user_id = (Get-AzureADUser -Filter "userPrincipalName eq '$logged_in_user'").ObjectId
+        $tenant_id = $entra_session_info.TenantId
+        $logged_in_user = $entra_session_info.Account
+        $logged_in_user_id = (Get-EntraUser -UserId $logged_in_user -ErrorAction Stop).Id
 
         #Get all Memberships
         $account_membership = Get-AzureADUserMembership -ObjectId $logged_in_user_id
@@ -136,7 +126,6 @@ function AccessInfo{
         foreach ($objects in $account_owned_objects){
             $account_owned_objects_name += $objects.DisplayName
         }
-
 
         #Display access info
         MAADWriteInfo "Tenant"
@@ -203,5 +192,3 @@ function AccessInfo{
 
     MAADPause
 }
-
-

@@ -5,7 +5,7 @@ function CreateNewAzureADApplication{
 
     try {
         MAADWriteProcess "Attempting to create new application -> $new_app_display_name"
-        New-AzureADApplication -DisplayName $new_app_display_name | Out-Null
+        New-EntraApplication -DisplayName $new_app_display_name | Out-Null
         MAADWriteSuccess "New Application Created"
         $allow_undo = $true
     }
@@ -20,8 +20,8 @@ function CreateNewAzureADApplication{
         if ($user_confirm -notin "No","no","N","n") {
             try {
                 MAADWriteProcess "Attempting to delete application -> $new_app_display_name"
-                $new_app_id = (Get-AzureADApplication -Filter "displayName eq '$new_app_display_name'").ObjectId
-                Remove-AzureADApplication -ObjectId $new_app_id | Out-Null
+                $new_app_id = (Get-EntraApplication -Filter "displayName eq '$new_app_display_name'").Id
+                Remove-EntraApplication -ApplicationId $new_app_id | Out-Null
                 MAADWriteSuccess "New Application Deleted"
             }
             catch {

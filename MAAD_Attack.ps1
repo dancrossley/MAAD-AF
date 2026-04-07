@@ -69,5 +69,8 @@ else {
     }
 }
 
+# Enable Microsoft Entra compatibility aliases after dependency handling.
+InitializeMAADEntraCompatibility
+
 #Launch MAD-AF Attack Arsenal
-MAADAttackArsenal 
+MAADAttackArsenal

@@ -24,6 +24,13 @@ MAAD-AF is developed natively in PowerShell.
 ## Requirements
  1. Windows host
  2. PowerShell 5.1
+ 3. Microsoft Entra PowerShell (`Microsoft.Entra` and `Microsoft.Entra.Beta`) for Entra ID operations
+
+## Authentication Notes
+- MAAD-AF now uses Microsoft Entra PowerShell for Entra ID access instead of the retired AzureAD and MSOnline modules.
+- Entra access uses interactive or device-code authentication by default.
+- Stored access tokens must target Microsoft Graph. When adding a token credential, include a Microsoft Graph audience such as `https://graph.microsoft.com`.
+- Username/password credentials can still be used for services that support them, but Entra access no longer relies on delegated username/password authentication.
 
 ## Features
 - Attack emulation tool

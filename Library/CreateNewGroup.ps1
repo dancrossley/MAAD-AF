@@ -7,7 +7,7 @@ function CreateNewAzureADGroup {
 
     #If no description provided by user, set default description
     if ($null -eq $new_group_description -or "" -eq $new_group_description) {
-        $new_group_description = "MAAD-AF Azure AD Group"
+        $new_group_description = "MAAD-AF Entra Group"
     }
 
     #Create the group with set parameters
@@ -75,4 +75,3 @@ function CreateNewM365Group{
     }
     MAADPause
 }
-

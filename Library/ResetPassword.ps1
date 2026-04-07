@@ -15,7 +15,7 @@ function ResetPassword {
     #Reset password
     try {
         MAADWriteProcess "Resetting account password"
-        Set-AzureADUserPassword -ObjectId $target_account -Password $new_secure_password -EnforceChangePasswordPolicy $false -ErrorAction Stop
+        Set-EntraUserPasswordProfile -UserId $target_account -Password $new_secure_password -ErrorAction Stop
         Start-Sleep -s 5 
         "User: $target_account | NewPassword: $new_password" | Out-File -FilePath $output_path -Append
         MAADWriteProcess "Output Saved -> \MAAD-AF\Outputs\PasswordResets.txt"

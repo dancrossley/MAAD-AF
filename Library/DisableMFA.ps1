@@ -8,8 +8,13 @@ function DisableMFA {
     if ($null -ne $target_account){
         #Disabe MFA
         try {
+            $current_auth_requirement = Get-EntraBetaUserAuthenticationRequirement -UserId $target_account -ErrorAction Stop
+            $previous_mfa_state = [string]$current_auth_requirement.PerUserMfaState
+            if ($previous_mfa_state -in $null, "") {
+                $previous_mfa_state = "disabled"
+            }
             MAADWriteProcess "Attempting to disable MFA on account -> $target_account"
-            Get-MsolUser -UserPrincipalName $target_account | Set-MsolUser -StrongAuthenticationRequirements @() -ErrorAction Stop
+            Update-EntraBetaUserAuthenticationRequirement -UserId $target_account -PerUserMfaState "disabled" -ErrorAction Stop
             Start-Sleep -s 5 
             MAADWriteSuccess "Guards Down: MFA disabled on account"
             $allow_undo = $true
@@ -24,21 +29,18 @@ function DisableMFA {
 
     #Undo changes
     if ($allow_undo -eq $true) {
-        #Enable MFA
+        #Restore MFA
         $user_choice = Read-Host -Prompt "`n[?] Undo: Re-enable MFA on the account (y/n)"
 
         if ($user_choice -notin "No","no","N","n") {
-            MAADWriteProcess "Enabling MFA on account -> $target_account"
-            $mfa = New-Object -TypeName Microsoft.Online.Administration.StrongAuthenticationRequirement
-            $mfa.RelyingParty = "*"
-            $mfa.State = "Enabled"
-            $mfax = @($mfa)
+            $restored_mfa_state = $previous_mfa_state.ToLower()
+            MAADWriteProcess "Restoring MFA state on account -> $target_account"
             try {
-                Set-MsolUser -UserPrincipalName $target_account -StrongAuthenticationRequirements $mfax
-                MAADWriteSuccess "Enabled MFA on account"
+                Update-EntraBetaUserAuthenticationRequirement -UserId $target_account -PerUserMfaState $restored_mfa_state -ErrorAction Stop
+                MAADWriteSuccess "Restored MFA state -> $restored_mfa_state"
             }
             catch {
-                MAADWriteError "Failed to enable MFA on account"
+                MAADWriteError "Failed to restore MFA state on account"
             }
         }
     }

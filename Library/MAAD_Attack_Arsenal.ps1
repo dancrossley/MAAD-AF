@@ -2,12 +2,12 @@ function MAADAttackArsenal{
     $maad_attack_menu = 
     [ordered]@{
         "Pre-Attack" = @{1 = "Find Tenant ID of Organization"; 2 = "Find DNS Info"; 3 = "Recon User Login Info"; 4 = "Check Account Validity in Target Tenant"; 5 = "Enumerate Usernames to Find Valid Users in Tenant"; 6 = "Brute-Force Credentials"};
-        "Access" = @{1 = "Show Available Credentials"; 2 = "Add Credentials"; 3 = "Get Access Info"; 4 = "Establish Access - All"; 5 = "Establish Access - AzureAD"; 6 = "Establish Access - Az"; 7 = "Establish Access - Exchange Online"; 8 = "Establish Access - Teams"; 9 = "Establish Access - Msol"; 10 = "Establish Access - Sharepoint Site"; 11 = "Establish Access - Sharepoint Admin Center"; 12 = "Establish Access - Compliance (eDiscovery)"; 13 = "Kill All Access"; 14 = "Anonymize Access with TOR"};
-        "Recon" = @{1 = "AAD : Find All Accounts"; 2= "AAD : Find All Groups"; 3 = "AAD : Find All Service Principals"; 4 = "AAD : Find All Auth Policy"; 5 = "AAD : Recon Named Locations"; 6 = "AAD : Recon Conditional Access Policy"; 7 = "AAD : Recon Registered Devices for Account"; 8 = "AAD : Recon All Accessible Tenants"; 9 = "Teams : Recon All Teams"; 10 = "SP : Recon All Sharepoint Sites"; 11 = "Exchange : Find All Mailboxes"; 12 = "AAD : Recon All Directory Roles"; 13 = "AAD : Recon Directory Role Members"; 14 = "AAD : Recon Directory Roles Assigned To User"; 15 = "Exchange : Recon All Role Groups"; 16 = "Exchange : Recon Role Group Members"; 17 = "Exchange : Recon All Management Roles"; 18 = "Exchange : Recon All eDiscovery Admins in Tenant"};
-        "Account" = @{1 = "List Accounts in Tenant"; 2 = "Deploy Backdoor Account"; 3 = "Assign Azure AD Role to Account"; 4 = "Assign Management Role Account"; 5 = "Reset Password"; 6 = "Brute-Force Credentials"; 7 = "Disable Account MFA"; 8 = "Delete User"}; 
+        "Access" = @{1 = "Show Available Credentials"; 2 = "Add Credentials"; 3 = "Get Access Info"; 4 = "Establish Access - All"; 5 = "Establish Access - Entra"; 6 = "Establish Access - Az"; 7 = "Establish Access - Exchange Online"; 8 = "Establish Access - Teams"; 9 = "Establish Access - Sharepoint Site"; 10 = "Establish Access - Sharepoint Admin Center"; 11 = "Establish Access - Compliance (eDiscovery)"; 12 = "Kill All Access"; 13 = "Anonymize Access with TOR"};
+        "Recon" = @{1 = "Entra : Find All Accounts"; 2= "Entra : Find All Groups"; 3 = "Entra : Find All Service Principals"; 4 = "Entra : Find All Auth Policy"; 5 = "Entra : Recon Named Locations"; 6 = "Entra : Recon Conditional Access Policy"; 7 = "Entra : Recon Registered Devices for Account"; 8 = "Entra : Recon All Accessible Tenants"; 9 = "Teams : Recon All Teams"; 10 = "SP : Recon All Sharepoint Sites"; 11 = "Exchange : Find All Mailboxes"; 12 = "Entra : Recon All Directory Roles"; 13 = "Entra : Recon Directory Role Members"; 14 = "Entra : Recon Directory Roles Assigned To User"; 15 = "Exchange : Recon All Role Groups"; 16 = "Exchange : Recon Role Group Members"; 17 = "Exchange : Recon All Management Roles"; 18 = "Exchange : Recon All eDiscovery Admins in Tenant"};
+        "Account" = @{1 = "List Accounts in Tenant"; 2 = "Deploy Backdoor Account"; 3 = "Assign Entra Role to Account"; 4 = "Assign Management Role Account"; 5 = "Reset Password"; 6 = "Brute-Force Credentials"; 7 = "Disable Account MFA"; 8 = "Delete User"}; 
         "Group" = @{1 = "List Groups in Tenant"; 2 = "Create Group"; 3 = "Add user to Group"; 4 = "Assign Role to Group"};
         "Application" = @{1 = "List Applications in Tenant"; 2 = "Create Application"; 3 = "Generate New Application Credentials"};
-        "AzureAD" = @{1 = "Modify Trusted IP Config"; 2 = "Download All Account List"; 3 = "Exploit Cross Tenant Sync"};
+        "Entra" = @{1 = "Modify Trusted IP Config"; 2 = "Download All Account List"; 3 = "Exploit Cross Tenant Sync"};
         "Exchange" = @{1 = "List Mailboxes in Tenant"; 2 = "Gain Access to Another Mailbox"; 3 = "Setup Email Forwarding"; 4 = "Setup Email Deletion Rule"; 5 = "Disable Mailbox Auditing"; 6 = "Disable Anti-Phishing Policy"};
         "Teams" = @{1 = "List Teams in Tenant"; 2 = "Invite External User to Teams"};
         "Sharepoint" = @{1 = "List Sharepoint Sites"; 2 = "Gain Access to Sharepoint Site"; 3 = "Search Files in Sharepoint"; 4= "Exfiltrate Data from Sharepoint"};
@@ -96,29 +96,33 @@ function MAADAttackArsenal{
                     "Access.1" {RetrieveCredentials}
                     "Access.2" {
                         $new_cred_id = Read-Host -Prompt "`n[?] Credential Identifier"
-                        $new_cred_type = Read-Host -Prompt "`n[?] Select Cred Type? [password / token]"
-                        if ($new_cred_type.Trim() -eq "password"){
+                        $new_cred_type = (Read-Host -Prompt "`n[?] Select Cred Type? [password / token]").Trim().ToLower()
+                        if ($new_cred_type -eq "password"){
                             $new_username = Read-Host -Prompt "`n[?] Username"
                             $new_password = Read-Host -Prompt "`n[?] Password"
                             AddCredentials $new_cred_type $new_cred_id $new_username $new_password 
                         }
                         elseif ($new_cred_type -eq "token"){
-                            Read-Host -Prompt "`nToken"
-                            AddCredentials $new_cred_type, $new_cred_id $new_token
+                            $new_token = Read-Host -Prompt "`n[?] Token"
+                            $new_token_audience = Read-Host -Prompt "`n[?] Token audience (Microsoft Graph resource, for example https://graph.microsoft.com)"
+                            $new_token_tenant_id = Read-Host -Prompt "`n[?] Token tenant ID (optional)"
+                            AddCredentials $new_cred_type $new_cred_id "" "" $new_token $new_token_audience $new_token_tenant_id
+                        }
+                        else {
+                            MAADWriteError "Invalid credential type"
                         }
                     }
                     "Access.3" {AccessInfo}
                     "Access.4" {EstablishAccess}
-                    "Access.5" {EstablishAccess "azure_ad"}
+                    "Access.5" {EstablishAccess "entra"}
                     "Access.6" {EstablishAccess "az"}
                     "Access.7" {EstablishAccess "exchange_online"}
                     "Access.8" {EstablishAccess "teams"}
-                    "Access.9" {EstablishAccess "msol"}
-                    "Access.10" {EstablishAccess "sharepoint_site"}
-                    "Access.11" {EstablishAccess "sharepoint_admin_center"}
-                    "Access.12" {EstablishAccess "ediscovery"}
-                    "Access.13" {terminate_connection}
-                    "Access.14" {TORAnonymizer("start")}
+                    "Access.9" {EstablishAccess "sharepoint_site"}
+                    "Access.10" {EstablishAccess "sharepoint_admin_center"}
+                    "Access.11" {EstablishAccess "ediscovery"}
+                    "Access.12" {terminate_connection}
+                    "Access.13" {TORAnonymizer("start")}
 
                     "Recon.1" {MAADGetAllAADUsers}
                     "Recon.2" {MAADGetAllAADGroups}
@@ -157,9 +161,9 @@ function MAADAttackArsenal{
                     "Application.2" {CreateNewAzureADApplication}
                     "Application.3" {GenerateNewApplicationCredentials}
                     
-                    "AzureAD.1" {ModifyTrustedNetworkConfig}
-                    "AzureAD.2" {MAADGetAllAADUsers $true}
-                    "AzureAD.3" {ExploitCTS}
+                    "Entra.1" {ModifyTrustedNetworkConfig}
+                    "Entra.2" {MAADGetAllAADUsers $true}
+                    "Entra.3" {ExploitCTS}
 
                     "Exchange.1" {MAADGetAllMailboxes}
                     "Exchange.2" {GrantMailboxAccess}
