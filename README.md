@@ -23,14 +23,22 @@ MAAD-AF is developed natively in PowerShell.
 
 ## Requirements
  1. Windows host
- 2. PowerShell 5.1
- 3. Microsoft Entra PowerShell (`Microsoft.Entra` and `Microsoft.Entra.Beta.SignIns`) for Entra ID operations
+ 2. Windows PowerShell 5.1
+ 3. PowerShell Gallery access and administrator rights to install required modules
+ 4. Microsoft Entra PowerShell for Entra ID operations. MAAD-AF now relies on `Microsoft.Entra`, `Microsoft.Entra.Applications`, `Microsoft.Entra.Groups`, `Microsoft.Entra.SignIns`, and `Microsoft.Entra.Beta.SignIns`
+ 5. Compatible Microsoft Graph PowerShell modules for Entra-backed cmdlets
+
+## Installation Notes
+- MAAD-AF now uses Microsoft Entra PowerShell instead of the retired AzureAD and MSOnline modules.
+- On first launch, MAAD-AF will check for and install the required Entra, Graph, and service-specific PowerShell modules.
+- Windows PowerShell 5.1 is still supported. MAAD-AF raises PowerShell session limits automatically to accommodate larger Entra and Graph modules.
+- If you already have older Microsoft Graph module versions installed side-by-side, module import conflicts can occur. Removing stale Graph versions before first run can help avoid Entra cmdlet load failures.
 
 ## Authentication Notes
-- MAAD-AF now uses Microsoft Entra PowerShell for Entra ID access instead of the retired AzureAD and MSOnline modules.
 - Entra access uses interactive or device-code authentication by default.
 - Stored access tokens must target Microsoft Graph. When adding a token credential, include a Microsoft Graph audience such as `https://graph.microsoft.com`.
 - Username/password credentials can still be used for services that support them, but Entra access no longer relies on delegated username/password authentication.
+- Saved password credentials can still be selected in the UI for convenience, but Entra access will continue with interactive or device-code sign-in instead of delegated password auth.
 
 ## Features
 - Attack emulation tool
