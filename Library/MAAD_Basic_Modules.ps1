@@ -1,6 +1,31 @@
 ###Basic functions
+function InitializeMAADPowerShellLimits {
+    if ((($PSVersionTable).PSVersion.Major) -ne 5){
+        return
+    }
+
+    $target_function_count = 32768
+    $target_variable_count = 32768
+    $limits_updated = $false
+
+    if ($MaximumFunctionCount -lt $target_function_count) {
+        Set-Variable -Name MaximumFunctionCount -Value $target_function_count -Scope Global -Force
+        $limits_updated = $true
+    }
+
+    if ($MaximumVariableCount -lt $target_variable_count) {
+        Set-Variable -Name MaximumVariableCount -Value $target_variable_count -Scope Global -Force
+        $limits_updated = $true
+    }
+
+    if ($limits_updated) {
+        MAADWriteProcess "Adjusted PowerShell session limits for large Entra/Graph modules"
+    }
+}
+
 function RequiredModules {
     ###This function checks for required modules by MAAD and Installs them if unavailable. Some modules have specific version requirements specified in the dictionary values
+    InitializeMAADPowerShellLimits
     $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.2.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
     $missing_modules = @{}
     $installed_modules = @{}
@@ -199,6 +224,8 @@ function InitializationChecks{
         MAADWriteInfo "Switch to execute MAAD-AF in PowerShell 5"
         MAADPause
     }
+
+    InitializeMAADPowerShellLimits
 
     #Create outputs & local files directory (if not present)
     CreateLocalDir
