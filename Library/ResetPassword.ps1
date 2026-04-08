@@ -2,6 +2,16 @@ function ResetPassword {
 
     mitre_details("ResetPassword")
 
+    try {
+        Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        MAADWriteError "Required Entra user modules could not be loaded"
+        MAADWriteError $_.Exception.Message
+        MAADPause
+        return
+    }
+
     MAADWriteInfo "Results of this action cannot be reversed"
 
     EnterAccount "`n[?] Enter user to reset password for (user@org.com)"
@@ -27,6 +37,7 @@ function ResetPassword {
     }
     catch {
         MAADWriteError "Failed to reset password"
+        MAADWriteError $_.Exception.Message
     }
     MAADPause
 }
