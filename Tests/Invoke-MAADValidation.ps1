@@ -142,23 +142,6 @@ function Get-MAADFunctionInventory {
     }
 }
 
-function Import-MAADLibraryFiles {
-    param([string]$LibraryPath)
-
-    $load_issues = @{}
-
-    foreach ($file in Get-ChildItem -Path $LibraryPath -Filter "*.ps1" | Sort-Object Name) {
-        try {
-            . $file.FullName
-        }
-        catch {
-            $load_issues[$file.FullName] = $_.Exception.Message
-        }
-    }
-
-    return $load_issues
-}
-
 function Get-MAADMenuBindings {
     param([string]$ArsenalPath)
 
@@ -411,6 +394,7 @@ function Write-MAADMarkdownReport {
 
     foreach ($result in ($Results | Sort-Object Section, Name)) {
         $notes = @()
+        $function_name = ([char]96) + $result.Name + ([char]96)
 
         if ($result.MenuChoices.Count -gt 0) {
             $notes += "Menu: $($result.MenuChoices -join ", ")"
@@ -422,7 +406,7 @@ function Write-MAADMarkdownReport {
             $notes += "Error: $($result.Error)"
         }
 
-        $lines += "| `$($result.Name)` | $(ConvertTo-MAADMarkdownCell $result.Section) | $(ConvertTo-MAADMarkdownCell $result.ValidationMode) | $(ConvertTo-MAADMarkdownCell $result.ParseStatus) | $(ConvertTo-MAADMarkdownCell $result.LoadStatus) | $(ConvertTo-MAADMarkdownCell $result.SmokeStatus) | $(ConvertTo-MAADMarkdownCell $result.OverallStatus) | $(ConvertTo-MAADMarkdownCell ($notes -join " ")) |"
+        $lines += "| $function_name | $(ConvertTo-MAADMarkdownCell $result.Section) | $(ConvertTo-MAADMarkdownCell $result.ValidationMode) | $(ConvertTo-MAADMarkdownCell $result.ParseStatus) | $(ConvertTo-MAADMarkdownCell $result.LoadStatus) | $(ConvertTo-MAADMarkdownCell $result.SmokeStatus) | $(ConvertTo-MAADMarkdownCell $result.OverallStatus) | $(ConvertTo-MAADMarkdownCell ($notes -join " ")) |"
     }
 
     $lines | Set-Content -Path $Path -Force
@@ -441,7 +425,16 @@ try {
     Push-Location $workspace
     Reset-MAADHarnessState -Workspace $workspace
 
-    $load_issues = Import-MAADLibraryFiles -LibraryPath $library_path
+    $load_issues = @{}
+    foreach ($file in Get-ChildItem -Path $library_path -Filter "*.ps1" | Sort-Object Name) {
+        try {
+            . $file.FullName
+        }
+        catch {
+            $load_issues[$file.FullName] = $_.Exception.Message
+        }
+    }
+
     Install-MAADTestShims
 
     $menu_bindings = Get-MAADMenuBindings -ArsenalPath $arsenal_path
