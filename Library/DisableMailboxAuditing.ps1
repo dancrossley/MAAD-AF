@@ -1,15 +1,24 @@
 function DisableMailboxAuditing{
 
     mitre_details("DisableMailboxAuditing")
+    $allow_undo = $false
     
-    EnterAccount("`n[?] Enter account to disable auditing for")
+    EnterMailbox("`n[?] Enter mailbox to disable auditing for")
 
-    #Enter account to compromise
-    $target_account = $global:account_username
+    #Enter mailbox to modify
+    $target_account = $global:mailbox_address
 
-    MAADWriteProcess "Fetching mailbox current config"
-    $current_config = Get-MailboxAuditBypassAssociation -Identity $target_account
-    MAADWriteProcess "Current Config -> Mailbox Audit Bypass Enabled : $($current_config.AuditBypassEnabled)"
+    try {
+        MAADWriteProcess "Fetching mailbox current config"
+        $current_config = Get-MailboxAuditBypassAssociation -Identity $target_account -ErrorAction Stop
+        MAADWriteProcess "Current Config -> Mailbox Audit Bypass Enabled : $($current_config.AuditBypassEnabled)"
+    }
+    catch {
+        MAADWriteError "Failed to fetch mailbox audit config"
+        MAADWriteError $_.Exception.Message
+        MAADPause
+        return
+    }
 
     $user_confirm = Read-Host -Prompt "`n[?] Confirm audit log disable for this account (y/n)"
     Write-Host ""
@@ -20,13 +29,14 @@ function DisableMailboxAuditing{
             Set-MailboxAuditBypassAssociation -Identity $target_account -AuditByPassEnabled $true -ErrorAction Stop | Out-Null
             MAADWriteProcess "Waiting for changes to take effect"
             Start-Sleep -s 60
-            $updated_config = Get-MailboxAuditBypassAssociation -Identity $target_account
+            $updated_config = Get-MailboxAuditBypassAssociation -Identity $target_account -ErrorAction Stop
             MAADWriteProcess "Updated Config -> Mailbox Audit Bypass Enabled : $($updated_config.AuditBypassEnabled)"
             MAADWriteSuccess "Flying low : Mailbox Auditing Disabled"
             $allow_undo = $true
         }
         catch {
             MAADWriteError "Failed to bypass audit logging for account"
+            MAADWriteError $_.Exception.Message
         }      
     }
 
@@ -38,16 +48,17 @@ function DisableMailboxAuditing{
         if ($user_confirm -notin "No","no","N","n") {
             try {
                 MAADWriteProcess "Re-enabling mailbox audit logging for account -> $target_account"
-                Set-MailboxAuditBypassAssociation -Identity $target_account -AuditByPassEnabled $false | Out-Null
+                Set-MailboxAuditBypassAssociation -Identity $target_account -AuditByPassEnabled $false -ErrorAction Stop | Out-Null
                 MAADWriteProcess "Waiting for changes to take effect"
                 Start-Sleep -s 60    
-                $updated_config = Get-MailboxAuditBypassAssociation -Identity $target_account
+                $updated_config = Get-MailboxAuditBypassAssociation -Identity $target_account -ErrorAction Stop
                 MAADWriteProcess "Fetching mailbox updated config"
                 MAADWriteProcess "Updated Config -> Mailbox Audit Bypass Enabled : $($updated_config.AuditBypassEnabled)"
                 MAADWriteSuccess "Re-enabled Audit Logging"
             }
             catch {
                 MAADWriteError "Failed to re-enable audit logging"
+                MAADWriteError $_.Exception.Message
             }
         }
     }
