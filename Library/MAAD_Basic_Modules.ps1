@@ -29,7 +29,7 @@ function RequiredModules {
     $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Users" = "";"Microsoft.Entra.DirectoryManagement" = "";"Microsoft.Entra.Governance" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.9.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Authentication" = "";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
     $missing_modules = @{}
     $installed_modules = @{}
-    $graph_modules = @("Microsoft.Graph.Authentication","Microsoft.Graph.Identity.SignIns","Microsoft.Graph.Applications","Microsoft.Graph.Users","Microsoft.Graph.Groups")
+    $graph_modules = @("Microsoft.Graph.Identity.SignIns","Microsoft.Graph.Applications","Microsoft.Graph.Users","Microsoft.Graph.Groups")
 
     #Check for available modules
     MAADWriteProcess "Checking for dependencies"
@@ -139,14 +139,19 @@ function RequiredModules {
     $installed_module_names = @($installed_modules.Keys)
     $installed_module_names = @($installed_module_names | Sort-Object `
         @{Expression = {
-            if ($_ -eq "Microsoft.Graph.Authentication") { 0 }
-            elseif ($_ -like "Microsoft.Graph.*") { 1 }
-            elseif ($_ -like "Microsoft.Entra*") { 2 }
-            else { 3 }
+            if ($_ -like "Microsoft.Graph.*") { 0 }
+            elseif ($_ -like "Microsoft.Entra*") { 1 }
+            else { 2 }
         }}, `
         @{Expression = { $_ }})
 
     foreach ($module in $installed_module_names){
+        if ($module -eq "Microsoft.Graph.Authentication") {
+            MAADWriteInfo "Skipping eager import -> Microsoft.Graph.Authentication"
+            MAADWriteInfo "This dependency will be loaded on demand to reduce Entra authentication conflicts"
+            continue
+        }
+
         #Remove any member of module from current run space
         try {
             Remove-Module -Name $module -ErrorAction Stop
