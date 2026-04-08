@@ -140,8 +140,18 @@ function Create_New_Search {
         Write-Host ""
         $description = "$case_name"
         ##  Create case
-        MAADWriteProcess "Creating new case -> $case_name" 
-        New-ComplianceCase -Name $case_name -Description $description | Out-Null
+        try {
+            MAADWriteProcess "Creating new case -> $case_name" 
+            New-ComplianceCase -Name $case_name -Description $description -ErrorAction Stop | Out-Null
+            MAADWriteSuccess "Created new case -> $case_name"
+        }
+        catch {
+            MAADWriteError "Failed to create new eDiscovery case"
+            MAADWriteError $_.Exception.Message
+            MAADWriteInfo "Ensure Compliance (eDiscovery) access is established before using this option"
+            MAADPause
+            return
+        }
     }
 
     if ($new_search_choice -eq 2) {
@@ -169,14 +179,27 @@ function Create_New_Search {
     Write-Host ""
 
     ##  Initiate Search query
-    if ($search_location -eq 1) {
-        $compSearch = New-ComplianceSearch -Case $case_name -Name $search_name -ExchangeLocation all -ContentMatchQuery $searchQry -Confirm:$false 
+    try {
+        if ($search_location -eq 1) {
+            $compSearch = New-ComplianceSearch -Case $case_name -Name $search_name -ExchangeLocation all -ContentMatchQuery $searchQry -Confirm:$false -ErrorAction Stop
+        }
+        elseif ($search_location -eq 2 ) {
+            $compSearch = New-ComplianceSearch -Case $case_name -Name $search_name -SharepointLocation all -ContentMatchQuery $searchQry -Confirm:$false -ErrorAction Stop
+        }
+        elseif ($search_location -eq 3 ) {
+            $compSearch = New-ComplianceSearch -Case $case_name -Name $search_name -PublicFolderLocation  all -ContentMatchQuery $searchQry -Confirm:$false -ErrorAction Stop
+        }
+        else {
+            MAADWriteError "Invalid search location selected"
+            MAADPause
+            return
+        }
     }
-    elseif ($search_location -eq 2 ) {
-        $compSearch = New-ComplianceSearch -Case $case_name -Name $search_name -SharepointLocation all -ContentMatchQuery $searchQry -Confirm:$false
-    }
-    elseif ($search_location -eq 3 ) {
-        $compSearch = New-ComplianceSearch -Case $case_name -Name $search_name -PublicFolderLocation  all -ContentMatchQuery $searchQry -Confirm:$false
+    catch {
+        MAADWriteError "Failed to create compliance search"
+        MAADWriteError $_.Exception.Message
+        MAADPause
+        return
     }
 
     MAADWriteProcess "Search query -> $searchQry" 
@@ -189,19 +212,21 @@ function Create_New_Search {
     }
     catch {
         MAADWriteError "Failed to start compliance search" 
-        break
+        MAADWriteError $_.Exception.Message
+        MAADPause
+        return
     }
     
     do
         {
             Start-Sleep -s 5
-            $complianceSearch = Get-ComplianceSearch -Identity $search_name
+            $complianceSearch = Get-ComplianceSearch -Identity $search_name -ErrorAction Stop
         }
     while ($complianceSearch.Status -ne "Completed")
 
     MAADWriteProcess "Search completed"
     MAADWriteProcess "Fetching search result summary"
-    $search_details = Get-ComplianceSearch -Identity $search_name
+    $search_details = Get-ComplianceSearch -Identity $search_name -ErrorAction Stop
     $search_details | Format-Table CreatedBy, Items, ExchangeLocation, SharepointLocation,PublicFolderLocation, NumFailedSources
     
     MAADWriteSuccess "Compliance Search completed" 
