@@ -103,35 +103,16 @@ function RequiredModules {
 
     MAADWriteProcess "Modules installed -> $($installed_modules.Count) / $($RequiredModules.Count)"
 
-    #Detect multiple side-by-side Graph versions and prefer a consistent import version where possible
-    $graph_target_version = $null
-    $graph_versions_by_module = @{}
-    $graph_common_versions = $null
     foreach ($graph_module in $graph_modules) {
         try {
             $versions = @(Get-InstalledModule -Name $graph_module -AllVersions -ErrorAction Stop | Select-Object -ExpandProperty Version)
             if ($versions.Count -gt 1) {
                 MAADWriteInfo "Multiple installed versions detected for $graph_module -> $($versions -join ', ')"
             }
-            $graph_versions_by_module[$graph_module] = $versions
-            if ($null -eq $graph_common_versions) {
-                $graph_common_versions = @($versions)
-            }
-            else {
-                $graph_common_versions = @($graph_common_versions | Where-Object { $versions -contains $_ })
-            }
         }
         catch {
             #Module can be intentionally missing if user skipped install.
         }
-    }
-
-    if (($null -ne $graph_common_versions) -and ($graph_common_versions.Count -gt 0)) {
-        $graph_target_version = ($graph_common_versions | Sort-Object -Descending | Select-Object -First 1).ToString()
-        MAADWriteProcess "Using consistent Microsoft.Graph module version -> $graph_target_version"
-    }
-    elseif ($graph_versions_by_module.Count -gt 0) {
-        MAADWriteInfo "Unable to determine a single shared Microsoft.Graph version. Import conflicts may occur."
     }
 
     #Import all installed Modules
@@ -151,6 +132,11 @@ function RequiredModules {
             MAADWriteInfo "This dependency will be loaded on demand to reduce Entra authentication conflicts"
             continue
         }
+        elseif ($module -like "Microsoft.Graph.*") {
+            MAADWriteInfo "Skipping eager import -> $module"
+            MAADWriteInfo "Microsoft.Graph modules will be loaded on demand to reduce Entra authentication conflicts"
+            continue
+        }
 
         #Remove any member of module from current run space
         try {
@@ -161,10 +147,7 @@ function RequiredModules {
         }
         
         try {
-            if (($module -in $graph_modules) -and ($null -ne $graph_target_version)) {
-                Import-Module -Name $module -RequiredVersion $graph_target_version -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
-            }
-            elseif ($installed_modules[$module] -eq "") {
+            if ($installed_modules[$module] -eq "") {
                 Import-Module -Name $module -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
             }
             else {
