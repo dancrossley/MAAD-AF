@@ -40,6 +40,10 @@ MAAD-AF is developed natively in PowerShell.
 - Username/password credentials can still be used for services that support them, but Entra access no longer relies on delegated username/password authentication.
 - Saved password credentials can still be selected in the UI for convenience, but Entra access will continue with interactive or device-code sign-in instead of delegated password auth.
 
+## Testing
+- A lightweight PowerShell validation framework is available under [`Tests/README.md`](Tests/README.md).
+- The test harness inventories every MAAD function, validates parse and load behavior automatically, runs safe smoke tests for selected helper and local-only functions, and generates Markdown and JSON reports showing which functions passed, failed, or still require manual live validation.
+
 ## Features
 - Attack emulation tool
 - Fully interactive (no-commands) workflow

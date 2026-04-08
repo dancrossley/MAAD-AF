@@ -1,0 +1,67 @@
+# MAAD Validation Framework
+
+This folder contains a lightweight PowerShell test harness for MAAD-AF. The framework inventories every function in `Library/`, validates that each function parses and loads, and produces a Markdown and JSON report showing which functions are:
+
+- `Pass`: validated automatically
+- `Fail`: parser, load, or smoke validation failed
+- `Manual`: requires live tenant validation or interactive review
+- `Skipped`: smoke-test capable, but smoke mode was not enabled
+
+## Why This Framework Exists
+
+MAAD-AF mixes pure helper functions, local configuration helpers, read-only live tenant recon, and highly destructive tenant-changing actions. A realistic test framework needs to distinguish between those categories instead of trying to execute every function blindly.
+
+The harness therefore runs in layers:
+
+1. Static validation for every discovered function
+2. Safe smoke tests for selected helper and local-only functions
+3. Manual/live classification for functions that need real service connections, user prompts, or tenant write access
+
+## Files
+
+- `Invoke-MAADValidation.ps1`
+  Main runner. Discovers functions, parses menu bindings, executes smoke tests, and writes reports.
+- `MAAD-TestProfile.ps1`
+  Classification profile for every section of MAAD plus function-level overrides for smoke tests.
+
+## Usage
+
+Run from Windows PowerShell 5.1:
+
+```powershell
+.\Tests\Invoke-MAADValidation.ps1
+```
+
+Run static validation only:
+
+```powershell
+.\Tests\Invoke-MAADValidation.ps1 -Mode Static
+```
+
+Fail the process if any automated validation fails:
+
+```powershell
+.\Tests\Invoke-MAADValidation.ps1 -Mode Static,Smoke -FailOnFailure
+```
+
+Reports are written to `.\TestReports` by default.
+
+## What Gets Tested Automatically
+
+The default smoke catalog focuses on low-risk functions such as:
+
+- Entra scope and token helper functions
+- Credential-store formatting and local writes
+- Output export helpers
+- Local MAAD working-directory setup
+- PowerShell session-limit initialization
+
+These smoke tests run in an isolated temporary workspace so they do not modify a real MAAD local state directory.
+
+## What Still Needs Manual Or Live Validation
+
+Functions that establish live access, query a tenant, or mutate Microsoft 365 / Entra state are intentionally classified as `Manual` or `Live*` in the generated report. Those functions should be validated in a controlled tenant with known-good credentials and change-control around destructive actions.
+
+## CI
+
+The included GitHub Actions workflow runs the safe `Static` and `Smoke` validation modes on a Windows runner and uploads the generated reports as artifacts.

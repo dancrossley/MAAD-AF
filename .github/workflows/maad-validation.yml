@@ -1,0 +1,26 @@
+name: MAAD Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run static and smoke validation
+        shell: powershell
+        run: .\Tests\Invoke-MAADValidation.ps1 -Mode Static,Smoke -FailOnFailure
+
+      - name: Upload validation reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: maad-validation-reports
+          path: TestReports
