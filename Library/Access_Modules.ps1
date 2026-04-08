@@ -754,12 +754,21 @@ function ConnectEdiscovery ([pscredential]$access_credential){
     MAADWriteProcess "Attempting access to Compliance portal"
 
     try {
-        Connect-IPPSSession -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -Credential $access_credential
+        Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Connect-IPPSSession -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -Credential $access_credential -EnableSearchOnlySession -ShowBanner:$false -ErrorAction Stop | Out-Null
         Start-Sleep -Seconds 5
         MAADWriteSuccess "Established access -> Compliance portal"
     }
     catch {
         MAADWriteError "Failed to establish access -> Compliance portal"
+        MAADWriteError (GetMAADExceptionMessage $_)
+        MAADWriteInfo "eDiscovery search operations require a Connect-IPPSSession search-only session and ExchangeOnlineManagement 3.9.0 or later"
     }
 }
 
