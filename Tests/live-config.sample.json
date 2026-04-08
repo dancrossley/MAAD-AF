@@ -1,0 +1,13 @@
+{
+  "EnabledLiveTests": [
+    "MAADGetAllAADUsers",
+    "MAADGetAllAADGroups",
+    "MAADGetAllServicePrincipal",
+    "ListAuthorizationPolicy",
+    "MAADGetNamedLocations",
+    "MAADGetConditionalAccessPolicies",
+    "MAADGetAllDirectoryRoles",
+    "MAADGetAccessibleTenants"
+  ],
+  "DefaultReadHostResponse": "n"
+}

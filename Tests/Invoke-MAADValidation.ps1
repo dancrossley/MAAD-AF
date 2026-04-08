@@ -4,6 +4,7 @@ param(
     [string]$RepoRoot = (Split-Path -Parent $PSScriptRoot),
     [string]$ProfilePath = (Join-Path $PSScriptRoot "MAAD-TestProfile.ps1"),
     [string]$OutputDirectory = (Join-Path (Split-Path -Parent $PSScriptRoot) "TestReports"),
+    [string]$LiveConfigPath,
     [switch]$FailOnFailure
 )
 
@@ -86,12 +87,80 @@ function Reset-MAADHarnessState {
     "" | Set-Content -Path $global:maad_log_file -Force
 }
 
-function Install-MAADTestShims {
+function Get-MAADLiveConfig {
+    param([string]$ConfigPath)
+
+    if ($ConfigPath -in "", $null) {
+        return [PSCustomObject]@{
+            EnabledLiveTests = @()
+            DefaultReadHostResponse = "n"
+        }
+    }
+
+    $resolved_path = $ConfigPath
+    if (-not (Test-Path $resolved_path)) {
+        throw "Live config file was not found: $ConfigPath"
+    }
+
+    $config = Get-Content -Path $resolved_path -Raw | ConvertFrom-Json
+
+    if ($null -eq $config.EnabledLiveTests) {
+        $config | Add-Member -MemberType NoteProperty -Name EnabledLiveTests -Value @()
+    }
+
+    if ($null -eq $config.DefaultReadHostResponse) {
+        $config | Add-Member -MemberType NoteProperty -Name DefaultReadHostResponse -Value "n"
+    }
+
+    return $config
+}
+
+function Reset-MAADHarnessTelemetry {
     $script:MAADStartedProcesses = @()
+    $script:MAADMessages = @()
+    $script:MAADReadHostResponses = @()
+}
+
+function Add-MAADHarnessMessage {
+    param(
+        [string]$Level,
+        [string]$Message
+    )
+
+    if ($null -eq $script:MAADMessages) {
+        $script:MAADMessages = @()
+    }
+
+    $script:MAADMessages += [PSCustomObject]@{
+        Level = $Level
+        Message = [string]$Message
+    }
+}
+
+function Install-MAADTestShims {
+    Reset-MAADHarnessTelemetry
 
     function global:MAADPause {}
     function global:Start-Sleep {}
     function global:Clear-Host {}
+    function global:Read-Host {
+        param([string]$Prompt)
+
+        if ($script:MAADReadHostResponses.Count -gt 0) {
+            $response = $script:MAADReadHostResponses[0]
+
+            if ($script:MAADReadHostResponses.Count -gt 1) {
+                $script:MAADReadHostResponses = @($script:MAADReadHostResponses[1..($script:MAADReadHostResponses.Count - 1)])
+            }
+            else {
+                $script:MAADReadHostResponses = @()
+            }
+
+            return $response
+        }
+
+        return "n"
+    }
     function global:Start-Process {
         param(
             [string]$FilePath,
@@ -102,6 +171,18 @@ function Install-MAADTestShims {
             FilePath = $FilePath
             ArgumentList = $ArgumentList
         }
+    }
+    function global:MAADWriteSuccess ([string]$message) {
+        Add-MAADHarnessMessage -Level "Success" -Message $message
+    }
+    function global:MAADWriteProcess ([string]$message) {
+        Add-MAADHarnessMessage -Level "Process" -Message $message
+    }
+    function global:MAADWriteInfo ([string]$message) {
+        Add-MAADHarnessMessage -Level "Info" -Message $message
+    }
+    function global:MAADWriteError ([string]$message) {
+        Add-MAADHarnessMessage -Level "Error" -Message $message
     }
 }
 
@@ -201,16 +282,17 @@ function Get-MAADFunctionMetadata {
 
     $matching_bindings = @($Bindings | Where-Object { $_.PrimaryFunction -eq $FunctionInfo.Name })
     $section = if ($matching_bindings.Count -gt 0) { $matching_bindings[0].Section } else { "Helper" }
-    $profile_entry = $null
-
-    if ($Profile.FunctionOverrides.ContainsKey($FunctionInfo.Name)) {
-        $profile_entry = $Profile.FunctionOverrides[$FunctionInfo.Name]
-    }
-    elseif ($section -ne "Helper" -and $Profile.SectionDefaults.ContainsKey($section)) {
-        $profile_entry = $Profile.SectionDefaults[$section]
+    if ($section -ne "Helper" -and $Profile.SectionDefaults.ContainsKey($section)) {
+        $profile_entry = @{} + $Profile.SectionDefaults[$section]
     }
     else {
-        $profile_entry = $Profile.DefaultHelper
+        $profile_entry = @{} + $Profile.DefaultHelper
+    }
+
+    if ($Profile.FunctionOverrides.ContainsKey($FunctionInfo.Name)) {
+        foreach ($key in $Profile.FunctionOverrides[$FunctionInfo.Name].Keys) {
+            $profile_entry[$key] = $Profile.FunctionOverrides[$FunctionInfo.Name][$key]
+        }
     }
 
     return [PSCustomObject]@{
@@ -220,6 +302,119 @@ function Get-MAADFunctionMetadata {
         Risk = $profile_entry.Risk
         Notes = $profile_entry.Notes
         SmokeTest = if ($profile_entry.ContainsKey("SmokeTest")) { $profile_entry.SmokeTest } else { $null }
+        LiveTest = if ($profile_entry.ContainsKey("LiveTest")) { $profile_entry.LiveTest } else { $null }
+        RequiredServices = if ($profile_entry.ContainsKey("RequiredServices")) { @($profile_entry.RequiredServices) } else { @() }
+    }
+}
+
+function Test-MAADLiveRequirements {
+    param([string[]]$RequiredServices)
+
+    $missing_services = @()
+
+    foreach ($service in $RequiredServices) {
+        switch ($service) {
+            "Entra" {
+                try {
+                    $entra_context = Get-EntraContext -ErrorAction Stop
+                    if ($null -eq $entra_context) {
+                        $missing_services += $service
+                    }
+                }
+                catch {
+                    $missing_services += $service
+                }
+            }
+            "Az" {
+                try {
+                    $az_context = Get-AzContext -ErrorAction Stop
+                    if ($null -eq $az_context) {
+                        $missing_services += $service
+                    }
+                }
+                catch {
+                    $missing_services += $service
+                }
+            }
+            Default {
+                $missing_services += $service
+            }
+        }
+    }
+
+    return @($missing_services | Select-Object -Unique)
+}
+
+function Invoke-MAADLiveTest {
+    param(
+        [string]$LiveTest,
+        [string]$Workspace,
+        [pscustomobject]$LiveConfig
+    )
+
+    Reset-MAADHarnessTelemetry
+    $script:MAADReadHostResponses = @($LiveConfig.DefaultReadHostResponse)
+
+    switch ($LiveTest) {
+        "MAADGetAllAADUsers" {
+            $output_file = Join-Path $Workspace "Outputs/AAD_Accounts.txt"
+            Remove-Item -Path $output_file -Force -ErrorAction SilentlyContinue
+            MAADGetAllAADUsers
+            Assert-MAADCondition (@($script:MAADMessages | Where-Object { $_.Level -eq "Error" }).Count -eq 0) "MAADGetAllAADUsers emitted an error."
+            Assert-MAADCondition (Test-Path $output_file) "MAADGetAllAADUsers did not write its output file."
+        }
+        "MAADGetAllAADGroups" {
+            $output_file = Join-Path $Workspace "Outputs/AAD_Groups.txt"
+            Remove-Item -Path $output_file -Force -ErrorAction SilentlyContinue
+            MAADGetAllAADGroups
+            Assert-MAADCondition (@($script:MAADMessages | Where-Object { $_.Level -eq "Error" }).Count -eq 0) "MAADGetAllAADGroups emitted an error."
+            Assert-MAADCondition (Test-Path $output_file) "MAADGetAllAADGroups did not write its output file."
+        }
+        "MAADGetAllServicePrincipal" {
+            $output_file = Join-Path $Workspace "Outputs/AAD_Service_Princiapls.txt"
+            Remove-Item -Path $output_file -Force -ErrorAction SilentlyContinue
+            MAADGetAllServicePrincipal
+            Assert-MAADCondition (@($script:MAADMessages | Where-Object { $_.Level -eq "Error" }).Count -eq 0) "MAADGetAllServicePrincipal emitted an error."
+            Assert-MAADCondition (Test-Path $output_file) "MAADGetAllServicePrincipal did not write its output file."
+        }
+        "ListAuthorizationPolicy" {
+            $output_file = Join-Path $Workspace "Outputs/AAD_Authorization_Policies.txt"
+            Remove-Item -Path $output_file -Force -ErrorAction SilentlyContinue
+            ListAuthorizationPolicy
+            Assert-MAADCondition (@($script:MAADMessages | Where-Object { $_.Level -eq "Error" }).Count -eq 0) "ListAuthorizationPolicy emitted an error."
+            Assert-MAADCondition (Test-Path $output_file) "ListAuthorizationPolicy did not write its output file."
+        }
+        "MAADGetNamedLocations" {
+            $output_file = Join-Path $Workspace "Outputs/AAD_Named_Locations.txt"
+            Remove-Item -Path $output_file -Force -ErrorAction SilentlyContinue
+            MAADGetNamedLocations
+            Assert-MAADCondition (@($script:MAADMessages | Where-Object { $_.Level -eq "Error" }).Count -eq 0) "MAADGetNamedLocations emitted an error."
+            Assert-MAADCondition (Test-Path $output_file) "MAADGetNamedLocations did not write its output file."
+        }
+        "MAADGetConditionalAccessPolicies" {
+            $output_file = Join-Path $Workspace "Outputs/All_CAP.txt"
+            Remove-Item -Path $output_file -Force -ErrorAction SilentlyContinue
+            MAADGetConditionalAccessPolicies
+            Assert-MAADCondition (@($script:MAADMessages | Where-Object { $_.Level -eq "Error" }).Count -eq 0) "MAADGetConditionalAccessPolicies emitted an error."
+            Assert-MAADCondition (Test-Path $output_file) "MAADGetConditionalAccessPolicies did not write its output file."
+        }
+        "MAADGetAllDirectoryRoles" {
+            $output_file = Join-Path $Workspace "Outputs/AAD_Directory_Roles.txt"
+            Remove-Item -Path $output_file -Force -ErrorAction SilentlyContinue
+            MAADGetAllDirectoryRoles
+            Assert-MAADCondition (@($script:MAADMessages | Where-Object { $_.Level -eq "Error" }).Count -eq 0) "MAADGetAllDirectoryRoles emitted an error."
+            Assert-MAADCondition (Test-Path $output_file) "MAADGetAllDirectoryRoles did not write its output file."
+        }
+        "MAADGetAccessibleTenants" {
+            $output_file = Join-Path $Workspace "Outputs/AAD_Accessible_Tenants.txt"
+            Remove-Item -Path $output_file -Force -ErrorAction SilentlyContinue
+            MAADGetAccessibleTenants
+            Assert-MAADCondition (@($script:MAADMessages | Where-Object { $_.Level -eq "Error" }).Count -eq 0) "MAADGetAccessibleTenants emitted an error."
+            Assert-MAADCondition (Test-Path $output_file) "MAADGetAccessibleTenants did not write its output file."
+        }
+        Default {
+            throw "Unknown live test '$LiveTest'."
+        }
     }
 }
 
@@ -389,8 +584,8 @@ function Write-MAADMarkdownReport {
     $lines += ""
     $lines += "## Function Results"
     $lines += ""
-    $lines += "| Function | Section | Validation | Parse | Load | Smoke | Overall | Notes |"
-    $lines += "| --- | --- | --- | --- | --- | --- | --- | --- |"
+    $lines += "| Function | Section | Validation | Parse | Load | Smoke | Live | Overall | Notes |"
+    $lines += "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"
 
     foreach ($result in ($Results | Sort-Object Section, Name)) {
         $notes = @()
@@ -406,7 +601,7 @@ function Write-MAADMarkdownReport {
             $notes += "Error: $($result.Error)"
         }
 
-        $lines += "| $function_name | $(ConvertTo-MAADMarkdownCell $result.Section) | $(ConvertTo-MAADMarkdownCell $result.ValidationMode) | $(ConvertTo-MAADMarkdownCell $result.ParseStatus) | $(ConvertTo-MAADMarkdownCell $result.LoadStatus) | $(ConvertTo-MAADMarkdownCell $result.SmokeStatus) | $(ConvertTo-MAADMarkdownCell $result.OverallStatus) | $(ConvertTo-MAADMarkdownCell ($notes -join " ")) |"
+        $lines += "| $function_name | $(ConvertTo-MAADMarkdownCell $result.Section) | $(ConvertTo-MAADMarkdownCell $result.ValidationMode) | $(ConvertTo-MAADMarkdownCell $result.ParseStatus) | $(ConvertTo-MAADMarkdownCell $result.LoadStatus) | $(ConvertTo-MAADMarkdownCell $result.SmokeStatus) | $(ConvertTo-MAADMarkdownCell $result.LiveStatus) | $(ConvertTo-MAADMarkdownCell $result.OverallStatus) | $(ConvertTo-MAADMarkdownCell ($notes -join " ")) |"
     }
 
     $lines | Set-Content -Path $Path -Force
@@ -420,6 +615,12 @@ $profile = & $ProfilePath
 $inventory = Get-MAADFunctionInventory -LibraryPath $library_path
 $workspace = New-MAADTestWorkspace
 $original_location = Get-Location
+$live_requested = $modes -contains "Live"
+$live_config = $null
+
+if ($live_requested) {
+    $live_config = Get-MAADLiveConfig -ConfigPath $LiveConfigPath
+}
 
 try {
     Push-Location $workspace
@@ -457,9 +658,11 @@ try {
         }
 
         $smoke_status = "NotConfigured"
+        $live_status = "NotConfigured"
 
         if ($function_info.ParseStatus -eq "Fail" -or $load_status -eq "Fail") {
             $smoke_status = "Blocked"
+            $live_status = "Blocked"
         }
         elseif ($metadata.ValidationMode -eq "Smoke" -and $metadata.SmokeTest -in $null, "") {
             $smoke_status = "Skipped"
@@ -482,12 +685,51 @@ try {
             $smoke_status = "Manual"
         }
 
+        if ($function_info.ParseStatus -eq "Fail" -or $load_status -eq "Fail") {
+            $live_status = "Blocked"
+        }
+        elseif ($metadata.LiveTest -in $null, "") {
+            $live_status = "NotConfigured"
+        }
+        elseif (-not $live_requested) {
+            $live_status = "NotRequested"
+        }
+        else {
+            $enabled_live_tests = @($live_config.EnabledLiveTests)
+
+            if ($enabled_live_tests.Count -gt 0 -and $function_info.Name -notin $enabled_live_tests) {
+                $live_status = "Skipped"
+            }
+            else {
+                $missing_services = @(Test-MAADLiveRequirements -RequiredServices $metadata.RequiredServices)
+
+                if ($missing_services.Count -gt 0) {
+                    $live_status = "Skipped"
+                    $error_messages += "Live prerequisites unavailable: $($missing_services -join ", ")."
+                }
+                else {
+                    try {
+                        Reset-MAADHarnessState -Workspace $workspace
+                        Invoke-MAADLiveTest -LiveTest $metadata.LiveTest -Workspace $workspace -LiveConfig $live_config
+                        $live_status = "Pass"
+                    }
+                    catch {
+                        $live_status = "Fail"
+                        $error_messages += $_.Exception.Message
+                    }
+                }
+            }
+        }
+
         $overall_status = "Manual"
 
-        if ($function_info.ParseStatus -eq "Fail" -or $load_status -eq "Fail" -or $smoke_status -eq "Fail") {
+        if ($function_info.ParseStatus -eq "Fail" -or $load_status -eq "Fail" -or $smoke_status -eq "Fail" -or $live_status -eq "Fail") {
             $overall_status = "Fail"
         }
         elseif ($metadata.ValidationMode -eq "Smoke" -and $smoke_status -eq "Pass") {
+            $overall_status = "Pass"
+        }
+        elseif ($metadata.LiveTest -notin $null, "" -and $live_status -eq "Pass") {
             $overall_status = "Pass"
         }
         elseif ($metadata.ValidationMode -eq "Static" -and $function_info.ParseStatus -eq "Pass" -and $load_status -eq "Pass") {
@@ -510,6 +752,7 @@ try {
             ParseStatus = $function_info.ParseStatus
             LoadStatus = $load_status
             SmokeStatus = $smoke_status
+            LiveStatus = $live_status
             OverallStatus = $overall_status
             Notes = $metadata.Notes
             Error = ($error_messages | Where-Object { $_ -notin "", $null } | Select-Object -Unique) -join " | "

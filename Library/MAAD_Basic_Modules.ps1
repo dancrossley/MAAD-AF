@@ -26,7 +26,7 @@ function InitializeMAADPowerShellLimits {
 function RequiredModules {
     ###This function checks for required modules by MAAD and Installs them if unavailable. Some modules have specific version requirements specified in the dictionary values
     InitializeMAADPowerShellLimits
-    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.2.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
+    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Users" = "";"Microsoft.Entra.DirectoryManagement" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.2.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
     $missing_modules = @{}
     $installed_modules = @{}
 
@@ -157,6 +157,20 @@ function InitializeMAADEntraCompatibility {
 
     try {
         Import-Module -Name Microsoft.Entra.SignIns -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.DirectoryManagement -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
     }
     catch {
         # Do nothing.
@@ -817,6 +831,10 @@ function Show-MAADOutput {
     )
     #This function displays a large output in a new powershell window
     MAADWriteProcess "Found $($output_list.Count) results"
+    $script = {
+        $name = 'MAAD-AF Output View'
+        $host.ui.RawUI.WindowTitle = $name
+    }
 
     if ($output_list.Count -gt 0) {
         
@@ -832,11 +850,6 @@ function Show-MAADOutput {
             if ($user_input -eq "y"){
                 MAADWriteInfo "Large output"
                 MAADWriteProcess "Checkout results in -> MAAD-AF Output view"
-                
-                $script = {
-                    $name = 'MAAD-AF Output View'
-                    $host.ui.RawUI.WindowTitle = $name
-                }
                 Start-Process powershell -ArgumentList "-NoExit $script `"Get-Content -Path $file_path; Read-Host `"Press [enter] to exit`" ;exit`""
             }
         }

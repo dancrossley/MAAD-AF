@@ -2,6 +2,16 @@
 function RemoveAccess {
     mitre_details("RemoveAccess")
 
+    try {
+        Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        MAADWriteError "Required Entra user modules could not be loaded"
+        MAADWriteError $_.Exception.Message
+        MAADPause
+        return
+    }
+
     MAADWriteInfo "Results of this action cannot be reversed"
 
     EnterAccount("`n[?] Enter account to delete from tenant")
@@ -21,7 +31,7 @@ function RemoveAccess {
         Write-Host ""
         if ($user_confirm.ToUpper() -in "Y","YES"){
             MAADWriteProcess "Attempting to delete account" 
-            Remove-AzureADUser -ObjectId $target_account -ErrorAction Stop | Out-Null
+            Remove-EntraUser -UserId $target_account -ErrorAction Stop | Out-Null
             Start-Sleep -s 5 
             MAADWriteProcess "Deleted -> Account: $target_account"
             MAADWriteSuccess "Account Deleted from Tenant"
@@ -32,6 +42,7 @@ function RemoveAccess {
     }
     catch {
         MAADWriteError "Failed to delete account"
+        MAADWriteError $_.Exception.Message
     }
     MAADPause
 }

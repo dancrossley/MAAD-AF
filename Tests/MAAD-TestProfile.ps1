@@ -144,5 +144,37 @@
             Risk = "LocalSafe"
             Notes = "Validates output export without opening an interactive window."
         }
+        "MAADGetAllAADUsers" = @{
+            LiveTest = "MAADGetAllAADUsers"
+            RequiredServices = @("Entra")
+        }
+        "MAADGetAllAADGroups" = @{
+            LiveTest = "MAADGetAllAADGroups"
+            RequiredServices = @("Entra")
+        }
+        "MAADGetAllServicePrincipal" = @{
+            LiveTest = "MAADGetAllServicePrincipal"
+            RequiredServices = @("Entra")
+        }
+        "ListAuthorizationPolicy" = @{
+            LiveTest = "ListAuthorizationPolicy"
+            RequiredServices = @("Entra")
+        }
+        "MAADGetNamedLocations" = @{
+            LiveTest = "MAADGetNamedLocations"
+            RequiredServices = @("Entra")
+        }
+        "MAADGetConditionalAccessPolicies" = @{
+            LiveTest = "MAADGetConditionalAccessPolicies"
+            RequiredServices = @("Entra")
+        }
+        "MAADGetAllDirectoryRoles" = @{
+            LiveTest = "MAADGetAllDirectoryRoles"
+            RequiredServices = @("Entra")
+        }
+        "MAADGetAccessibleTenants" = @{
+            LiveTest = "MAADGetAccessibleTenants"
+            RequiredServices = @("Az")
+        }
     }
 }

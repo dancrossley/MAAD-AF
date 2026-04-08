@@ -15,7 +15,8 @@ The harness therefore runs in layers:
 
 1. Static validation for every discovered function
 2. Safe smoke tests for selected helper and local-only functions
-3. Manual/live classification for functions that need real service connections, user prompts, or tenant write access
+3. Opt-in live tests for a small safe subset of read-only functions
+4. Manual/live classification for functions that still need prompts, tenant write access, or broader environment setup
 
 ## Files
 
@@ -45,6 +46,43 @@ Fail the process if any automated validation fails:
 ```
 
 Reports are written to `.\TestReports` by default.
+
+## Live Validation
+
+The harness also supports an opt-in `Live` mode for a safe subset of read-only functions. These tests are not enabled by default.
+
+1. Connect the required services in the same Windows PowerShell 5.1 session.
+   For example:
+
+```powershell
+Connect-Entra
+Connect-AzAccount
+```
+
+2. Copy `.\Tests\live-config.sample.json` to your own config file and trim the `EnabledLiveTests` list to the functions you want to exercise.
+
+3. Run the harness with live mode enabled:
+
+```powershell
+.\Tests\Invoke-MAADValidation.ps1 -Mode Static,Smoke,Live -LiveConfigPath .\Tests\live-config.sample.json
+```
+
+The current live catalog focuses on read-only functions such as:
+
+- `MAADGetAllAADUsers`
+- `MAADGetAllAADGroups`
+- `MAADGetAllServicePrincipal`
+- `ListAuthorizationPolicy`
+- `MAADGetNamedLocations`
+- `MAADGetConditionalAccessPolicies`
+- `MAADGetAllDirectoryRoles`
+- `MAADGetAccessibleTenants`
+
+Live tests are only executed when:
+
+- `-Mode Live` is specified
+- the function is included in `EnabledLiveTests` or the allowlist is left empty
+- the required service session is already connected in the current PowerShell process
 
 ## What Gets Tested Automatically
 

