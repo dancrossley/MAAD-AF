@@ -4,7 +4,6 @@ function AssignRole ($target_object_type){
 
     try {
         Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
-        Import-Module -Name Microsoft.Entra.Groups -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
         Import-Module -Name Microsoft.Entra.Governance -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
     }
     catch {
@@ -32,6 +31,16 @@ function AssignRole ($target_object_type){
     }
 
     elseif ($target_object_type -eq "group"){
+        try {
+            Import-Module -Name Microsoft.Entra.Groups -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+        }
+        catch {
+            MAADWriteError "Required Entra group modules could not be loaded"
+            MAADWriteError $_.Exception.Message
+            MAADPause
+            return
+        }
+
         #Set a target group
         EnterGroup("`n[?] Enter target group name to assign role (press [enter] to find groups)")
         $target_display_name = $global:group_name
