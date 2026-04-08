@@ -26,7 +26,7 @@ function InitializeMAADPowerShellLimits {
 function RequiredModules {
     ###This function checks for required modules by MAAD and Installs them if unavailable. Some modules have specific version requirements specified in the dictionary values
     InitializeMAADPowerShellLimits
-    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Users" = "";"Microsoft.Entra.DirectoryManagement" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.2.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
+    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Users" = "";"Microsoft.Entra.DirectoryManagement" = "";"Microsoft.Entra.Governance" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.2.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
     $missing_modules = @{}
     $installed_modules = @{}
 
@@ -171,6 +171,13 @@ function InitializeMAADEntraCompatibility {
 
     try {
         Import-Module -Name Microsoft.Entra.DirectoryManagement -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.Governance -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
     }
     catch {
         # Do nothing.
@@ -333,13 +340,13 @@ function EnterAccount ($input_prompt){
             try {
                 Write-Host ""
                 MAADWriteProcess "Recon -> Searching Accounts"
-                #Get-AzureADUser -All $true | Format-Table -Property DisplayName,UserPrincipalName,UserType
-                $all_users = Get-AzureADUser -All $true | Select-Object DisplayName,UserPrincipalName,UserType
+                $all_users = Get-EntraUser -All -ErrorAction Stop | Select-Object DisplayName,UserPrincipalName,UserType
                 Show-MAADOptionsView -OptionsList $all_users -NewWindowMessage "Accounts in tenant"
                 $repeat = $true
             }
             catch {
                 MAADWriteError "Failed to find account"
+                MAADWriteError $_.Exception.Message
                 $repeat = $false
             }
         }
@@ -360,25 +367,33 @@ function ValidateAccount ($input_user_account){
     $global:account_found = $false
     Write-Host ""
 
-    $check_account = Get-AzureADUser -SearchString $input_user_account
+    try {
+        $check_account = @(Get-EntraUser -SearchString $input_user_account -ErrorAction Stop)
+    }
+    catch {
+        MAADWriteError "Failed to search for account"
+        MAADWriteError $_.Exception.Message
+        $global:account_found = $false
+        return
+    }
     
-    if ($check_account -eq $null){
+    if ($check_account.Count -eq 0){
         MAADWriteError "Account Not Found"
         $global:account_found = $false
     }
     
     else {
-        if ($check_account.GetType().BaseType.Name -eq "Array"){
+        if ($check_account.Count -gt 1){
             MAADWriteError "Recon -> Multiple accounts found matching term"
             MAADWriteInfo "Lets take it slow ;) Try more specific search to target one account"
 
             Read-Host "`n[?] Press enter to view all matched accounts"
             Write-Host ""
-            $check_account | Format-Table -Property UserPrincipalName, ObjectId -AutoSize
+            $check_account | Format-Table -Property UserPrincipalName, Id -AutoSize
             $global:account_found = $false
         }
         else {
-            $global:account_username = $check_account.UserPrincipalName
+            $global:account_username = $check_account[0].UserPrincipalName
             $global:account_found = $true
             MAADWriteProcess "Account Found : $global:account_username"
         }
@@ -395,13 +410,13 @@ function EnterGroup ($input_prompt){
             try {
                 Write-Host ""
                 MAADWriteProcess "Recon -> Searching Groups"
-                # Get-AzureADMSGroup | Format-Table -Property DisplayName
-                $all_groups = Get-AzureADMSGroup | Select-Object DisplayName
+                $all_groups = Get-EntraGroup -All -ErrorAction Stop | Select-Object DisplayName
                 Show-MAADOptionsView -OptionsList $all_groups -NewWindowMessage "Groups in tenant"
                 $repeat = $true
             }
             catch {
                 MAADWriteError "Failed to find groups"
+                MAADWriteError $_.Exception.Message
                 $repeat = $false
             }
         }
@@ -422,15 +437,23 @@ function ValidateGroup ($input_group){
     $global:group_found = $false
     Write-Host ""
 
-    $check_group = Get-AzureADMSGroup -SearchString $input_group
+    try {
+        $check_group = @(Get-EntraGroup -SearchString $input_group -ErrorAction Stop)
+    }
+    catch {
+        MAADWriteError "Failed to search for group"
+        MAADWriteError $_.Exception.Message
+        $global:group_found = $false
+        return
+    }
     
-    if ($check_group -eq $null){
+    if ($check_group.Count -eq 0){
         MAADWriteError "Group Not Found"
         $global:group_found = $false
     }
     
     else {
-        if ($check_group.GetType().BaseType.Name -eq "Array"){
+        if ($check_group.Count -gt 1){
             MAADWriteProcess "Recon -> Multiple groups found matching term"
             MAADWriteInfo "Lets take things slow ;) Be more specific to target one group"
 
@@ -440,7 +463,7 @@ function ValidateGroup ($input_group){
             $global:group_found = $false
         }
         else {
-            $global:group_name = $check_group.DisplayName
+            $global:group_name = $check_group[0].DisplayName
             $global:group_found = $true
             MAADWriteProcess "Group Found : $global:group_name"
         }
@@ -458,13 +481,13 @@ function EnterRole ($input_prompt){
             try {
                 Write-Host ""
                 MAADWriteProcess "Recon -> Searching Roles"
-                # Get-AzureADMSRoleDefinition | Format-Table -Property DisplayName,Description
-                $all_roles = Get-AzureADMSRoleDefinition | Select-Object DisplayName,Description
+                $all_roles = Get-EntraDirectoryRoleDefinition -All -ErrorAction Stop | Select-Object DisplayName,Description
                 Show-MAADOptionsView -OptionsList $all_roles -NewWindowMessage "Roles in tenant"
                 $repeat = $true
             }
             catch {
                 MAADWriteError "Failed to find role"
+                MAADWriteError $_.Exception.Message
                 $repeat = $false
             }
         }
@@ -485,15 +508,23 @@ function ValidateRole ($input_role){
     $global:role_found = $false
     Write-Host ""
 
-    $check_role = Get-AzureADMSRoleDefinition  -Filter "startswith(displayName, '$input_role')"
+    try {
+        $check_role = @(Get-EntraDirectoryRoleDefinition -SearchString $input_role -ErrorAction Stop)
+    }
+    catch {
+        MAADWriteError "Failed to search for role"
+        MAADWriteError $_.Exception.Message
+        $global:role_found = $false
+        return
+    }
     
-    if ($check_role -eq $null){
+    if ($check_role.Count -eq 0){
         MAADWriteError "Role Not Found"
         $global:role_found = $false
     }
     
     else {
-        if ($check_role.GetType().BaseType.Name -eq "Array"){
+        if ($check_role.Count -gt 1){
             MAADWriteError "Recon -> Multiple roles found matching term"
             MAADWriteInfo "Lets take things slow ;) Be more specific to target one role!"
 
@@ -503,7 +534,7 @@ function ValidateRole ($input_role){
             $global:role_found = $false
         }
         else {
-            $global:role_name = $check_role.DisplayName
+            $global:role_name = $check_role[0].DisplayName
             $global:role_found = $true
             MAADWriteProcess "Role Found : $global:role_name"
         }
