@@ -37,7 +37,6 @@ function ModifyTrustedNetworkConfig {
     #Create trusted network policy
     try {
         $ip_range = New-Object -TypeName Microsoft.Open.MSGraph.Model.IpRange
-        $ip_range.'@odata.type' = "#microsoft.graph.iPv4CidrRange"
         $ip_range.CidrAddress = "$ip_addr/32"
         $ip_ranges = New-Object 'System.Collections.Generic.List[Microsoft.Open.MSGraph.Model.IpRange]'
         $ip_ranges.Add($ip_range)
