@@ -63,8 +63,15 @@ function ModifyTrustedNetworkConfig {
 
         if ($user_confirm -notin "No","no","N","n") {
             try {
+                $undo_ip_ranges = New-Object 'System.Collections.Generic.List[Microsoft.Open.MSGraph.Model.IpRange]'
+                foreach ($existing_ip_range in $trusted_nw.IpRanges) {
+                    $typed_ip_range = New-Object -TypeName Microsoft.Open.MSGraph.Model.IpRange
+                    $typed_ip_range.CidrAddress = $existing_ip_range.CidrAddress
+                    $undo_ip_ranges.Add($typed_ip_range)
+                }
+
                 MAADWriteProcess "Marking IP as untrusted"
-                Set-EntraNamedLocationPolicy -OdataType "#microsoft.graph.ipNamedLocation" -PolicyId $trusted_nw.Id -DisplayName $trusted_nw.DisplayName -IsTrusted $false -IpRanges $trusted_nw.IpRanges -ErrorAction Stop
+                Set-EntraNamedLocationPolicy -OdataType "#microsoft.graph.ipNamedLocation" -PolicyId $trusted_nw.Id -DisplayName $trusted_nw.DisplayName -IsTrusted $false -IpRanges $undo_ip_ranges -ErrorAction Stop
                 MAADWriteProcess "Removing Trusted Network Policy"
                 Remove-EntraNamedLocationPolicy -PolicyId $trusted_nw.Id -ErrorAction Stop
                 MAADWriteSuccess "Deleted New Trusted Location Policy"
