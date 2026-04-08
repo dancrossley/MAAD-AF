@@ -173,7 +173,8 @@ function AddCredentials ($new_cred_type, $name, $new_username, $new_password, $n
 
 function UseCredential {
     param (
-        [switch]$AllowTokenOnly
+        [switch]$AllowTokenOnly,
+        [switch]$InteractiveOnly
     )
     ###This function sets the global variables global:current_username + global:current_password or global:current_access_token to use with modules that require creds for authentication
 
@@ -185,6 +186,13 @@ function UseCredential {
     $global:current_access_token_tenant_id = $null
     $global:current_credentials = $null
     Write-Host ""
+
+    if ($InteractiveOnly) {
+        MAADWriteInfo "This access path uses interactive authentication only"
+        $global:current_username = Read-Host -Prompt "`n[?] Enter Username"
+        Write-Host ""
+        return
+    }
 
     #Checking if saved credentials are available in credentials.json
     try {

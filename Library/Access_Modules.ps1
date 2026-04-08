@@ -1,7 +1,10 @@
 function EstablishAccess ($target_service){
     Write-MAADLog "start" "EstablishAccess"
 
-    if ($target_service -in "entra", "azure_ad") {
+    if ($target_service -eq "ediscovery") {
+        UseCredential -InteractiveOnly
+    }
+    elseif ($target_service -in "entra", "azure_ad") {
         UseCredential -AllowTokenOnly
     }
     else {
