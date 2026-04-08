@@ -766,9 +766,21 @@ function ConnectEdiscovery ([pscredential]$access_credential){
         MAADWriteSuccess "Established access -> Compliance portal"
     }
     catch {
-        MAADWriteError "Failed to establish access -> Compliance portal"
-        MAADWriteError (GetMAADExceptionMessage $_)
-        MAADWriteInfo "eDiscovery search operations require a Connect-IPPSSession search-only session and ExchangeOnlineManagement 3.9.0 or later"
+        $compliance_connection_error = GetMAADExceptionMessage $_
+        MAADWriteInfo "Initial compliance connection failed. Retrying without WAM."
+
+        try {
+            Connect-IPPSSession -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -Credential $access_credential -EnableSearchOnlySession -DisableWAM -ShowBanner:$false -ErrorAction Stop | Out-Null
+            Start-Sleep -Seconds 5
+            MAADWriteSuccess "Established access -> Compliance portal"
+        }
+        catch {
+            MAADWriteError "Failed to establish access -> Compliance portal"
+            MAADWriteError $compliance_connection_error
+            MAADWriteError (GetMAADExceptionMessage $_)
+            MAADWriteInfo "eDiscovery search operations require a Connect-IPPSSession search-only session and ExchangeOnlineManagement 3.9.0 or later"
+            MAADWriteInfo "If WAM keeps failing, retry from a fresh Windows PowerShell 5.1 session after importing ExchangeOnlineManagement 3.9.0+"
+        }
     }
 }
 
