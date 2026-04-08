@@ -26,9 +26,10 @@ function InitializeMAADPowerShellLimits {
 function RequiredModules {
     ###This function checks for required modules by MAAD and Installs them if unavailable. Some modules have specific version requirements specified in the dictionary values
     InitializeMAADPowerShellLimits
-    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Users" = "";"Microsoft.Entra.DirectoryManagement" = "";"Microsoft.Entra.Governance" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.2.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
+    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Users" = "";"Microsoft.Entra.DirectoryManagement" = "";"Microsoft.Entra.Governance" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.2.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Authentication" = "";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
     $missing_modules = @{}
     $installed_modules = @{}
+    $graph_modules = @("Microsoft.Graph.Authentication","Microsoft.Graph.Identity.SignIns","Microsoft.Graph.Applications","Microsoft.Graph.Users","Microsoft.Graph.Groups")
 
     #Check for available modules
     MAADWriteProcess "Checking for dependencies"
@@ -102,9 +103,50 @@ function RequiredModules {
 
     MAADWriteProcess "Modules installed -> $($installed_modules.Count) / $($RequiredModules.Count)"
 
+    #Detect multiple side-by-side Graph versions and prefer a consistent import version where possible
+    $graph_target_version = $null
+    $graph_versions_by_module = @{}
+    $graph_common_versions = $null
+    foreach ($graph_module in $graph_modules) {
+        try {
+            $versions = @(Get-InstalledModule -Name $graph_module -AllVersions -ErrorAction Stop | Select-Object -ExpandProperty Version)
+            if ($versions.Count -gt 1) {
+                MAADWriteInfo "Multiple installed versions detected for $graph_module -> $($versions -join ', ')"
+            }
+            $graph_versions_by_module[$graph_module] = $versions
+            if ($null -eq $graph_common_versions) {
+                $graph_common_versions = @($versions)
+            }
+            else {
+                $graph_common_versions = @($graph_common_versions | Where-Object { $versions -contains $_ })
+            }
+        }
+        catch {
+            #Module can be intentionally missing if user skipped install.
+        }
+    }
+
+    if (($null -ne $graph_common_versions) -and ($graph_common_versions.Count -gt 0)) {
+        $graph_target_version = ($graph_common_versions | Sort-Object -Descending | Select-Object -First 1).ToString()
+        MAADWriteProcess "Using consistent Microsoft.Graph module version -> $graph_target_version"
+    }
+    elseif ($graph_versions_by_module.Count -gt 0) {
+        MAADWriteInfo "Unable to determine a single shared Microsoft.Graph version. Import conflicts may occur."
+    }
+
     #Import all installed Modules
     MAADWriteProcess "Importing installed modules to current run space"
-    foreach ($module in $installed_modules.Keys){
+    $installed_module_names = @($installed_modules.Keys)
+    $installed_module_names = @($installed_module_names | Sort-Object `
+        @{Expression = {
+            if ($_ -eq "Microsoft.Graph.Authentication") { 0 }
+            elseif ($_ -like "Microsoft.Graph.*") { 1 }
+            elseif ($_ -like "Microsoft.Entra*") { 2 }
+            else { 3 }
+        }}, `
+        @{Expression = { $_ }})
+
+    foreach ($module in $installed_module_names){
         #Remove any member of module from current run space
         try {
             Remove-Module -Name $module -ErrorAction Stop
@@ -114,7 +156,10 @@ function RequiredModules {
         }
         
         try {
-            if ($installed_modules[$module] -eq "") {
+            if (($module -in $graph_modules) -and ($null -ne $graph_target_version)) {
+                Import-Module -Name $module -RequiredVersion $graph_target_version -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+            }
+            elseif ($installed_modules[$module] -eq "") {
                 Import-Module -Name $module -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
             }
             else {
@@ -124,6 +169,9 @@ function RequiredModules {
         catch {
             MAADWriteError "Failed to import module"
             MAADWriteProcess "Skipping module import -> $module"
+            if ($module -like "Microsoft.Graph.*" -or $module -like "Microsoft.Entra*") {
+                MAADWriteInfo $_.Exception.Message
+            }
         }
     }       
 
