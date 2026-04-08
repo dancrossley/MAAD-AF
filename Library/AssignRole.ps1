@@ -104,9 +104,27 @@ function AssignRole ($target_object_type){
 }
 
 function AssignManagementRole {
+    try {
+        Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        MAADWriteError "Required Entra user modules could not be loaded"
+        MAADWriteError $_.Exception.Message
+        MAADPause
+        return
+    }
+
     EnterAccount "`n[?] Enter account to assign role (user@org.com)"
     $target_account = $global:account_username
-    $target_id = (Get-EntraUser -UserId $target_account).Id
+    try {
+        $target_id = (Get-EntraUser -UserId $target_account -ErrorAction Stop).Id
+    }
+    catch {
+        MAADWriteError "Failed to resolve target account"
+        MAADWriteError $_.Exception.Message
+        MAADPause
+        return
+    }
 
 
     EnterManagementRole "`n[?] Enter role name to assign (press [enter] to find roles)"
