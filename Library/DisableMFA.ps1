@@ -2,6 +2,17 @@ function DisableMFA {
 
     mitre_details("DisableMFA")
 
+    try {
+        Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+        Import-Module -Name Microsoft.Entra.Beta.SignIns -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        MAADWriteError "Required Entra MFA modules could not be loaded"
+        MAADWriteError $_.Exception.Message
+        MAADPause
+        return
+    }
+
     EnterAccount "`n[?] Enter account to disable MFA on (user@org.com)"
     $target_account = $global:account_username
 
@@ -21,6 +32,7 @@ function DisableMFA {
         }
         catch {
             MAADWriteError "Failed to disable MFA"
+            MAADWriteError $_.Exception.Message
         }   
     }
     else{
@@ -41,6 +53,7 @@ function DisableMFA {
             }
             catch {
                 MAADWriteError "Failed to restore MFA state on account"
+                MAADWriteError $_.Exception.Message
             }
         }
     }
