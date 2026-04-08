@@ -1,22 +1,42 @@
 #Compliance & Security Functions
 function Display_E_Discovery_Cases ($selection = $false) {
-    $all_e_discovery_cases = Get-ComplianceCase
+    try {
+        $all_e_discovery_cases = @(Get-ComplianceCase -ErrorAction Stop)
+    }
+    catch {
+        MAADWriteError "Failed to fetch eDiscovery cases"
+        MAADWriteError $_.Exception.Message
+        return
+    }
     Write-Host ""
 
-    if ($null -eq $all_e_discovery_cases){
+    if ($all_e_discovery_cases.Count -eq 0){
         MAADWriteError "No eDiscovery cases found" 
         return
     }
 
     MAADWriteProcess "Fetching eDiscovery cases" 
-    foreach ($item in $all_e_discovery_cases){
-        Write-Host $([array]::IndexOf($all_e_discovery_cases,$item)+1) ':' $item.Name
-    } 
+    if ($all_e_discovery_cases.Count -eq 1) {
+        $global:selected_case = $all_e_discovery_cases[0].Name
+        Write-Host "1 :" $global:selected_case
+        if ($selection) {
+            MAADWriteProcess "Target case -> $global:selected_case"
+            return
+        }
+    }
+    else {
+        foreach ($item in $all_e_discovery_cases){
+            Write-Host $([array]::IndexOf($all_e_discovery_cases,$item)+1) ':' $item.Name
+        }
+    }
 
     while ($selection) {
         try {
             [int]$case_choice = Read-Host "`n[?] Select a case"
             Write-Host ""
+            if ($case_choice -lt 1 -or $case_choice -gt $all_e_discovery_cases.Count) {
+                throw "Selection out of range"
+            }
             $global:selected_case = $all_e_discovery_cases[$case_choice-1].Name
             break
         }
