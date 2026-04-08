@@ -16,7 +16,7 @@ function EstablishAccess ($target_service){
         "teams"{AccessTeams $global:current_username $global:current_credentials $global:current_access_token}
         "sharepoint_site"{AccessSharepoint $global:current_username $global:current_credentials $global:current_access_token}
         "sharepoint_admin_center"{AccessSharepointAdmin $global:current_username $global:current_credentials $global:current_access_token}
-        "ediscovery"{ConnectEdiscovery $global:current_credentials}
+        "ediscovery"{ConnectEdiscovery $global:current_username $global:current_credentials}
         Default {
             AccessEntra $global:current_access_token
             AccessAzAccount $global:current_username $global:current_credentials $global:current_access_token
@@ -24,7 +24,7 @@ function EstablishAccess ($target_service){
             AccessExchangeOnline $global:current_username $global:current_credentials $global:current_access_token
             AccessSharepoint $global:current_username $global:current_credentials $global:current_access_token
             AccessSharepointAdmin $global:current_username $global:current_credentials $global:current_access_token
-            ConnectEdiscovery $global:current_credentials
+            ConnectEdiscovery $global:current_username $global:current_credentials
         
             #Display access info after establishing connection
             MAADPause
@@ -750,7 +750,12 @@ function ConnectSharepointSite ($target_site_url, [pscredential]$access_credenti
     }
 }
 
-function ConnectEdiscovery ([pscredential]$access_credential){
+function ConnectEdiscovery {
+    param (
+        $AdminUsername,
+        [PSCredential]$access_credential
+    )
+
     MAADWriteProcess "Attempting access to Compliance portal"
 
     try {
@@ -760,8 +765,15 @@ function ConnectEdiscovery ([pscredential]$access_credential){
         # Do nothing.
     }
 
+    MAADWriteInfo "Compliance access now prefers interactive authentication for eDiscovery search sessions"
+
     try {
-        Connect-IPPSSession -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -Credential $access_credential -EnableSearchOnlySession -ShowBanner:$false -ErrorAction Stop | Out-Null
+        if ($AdminUsername -notin "", $null) {
+            Connect-IPPSSession -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -UserPrincipalName $AdminUsername -EnableSearchOnlySession -ShowBanner:$false -ErrorAction Stop | Out-Null
+        }
+        else {
+            Connect-IPPSSession -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -EnableSearchOnlySession -ShowBanner:$false -ErrorAction Stop | Out-Null
+        }
         Start-Sleep -Seconds 5
         MAADWriteSuccess "Established access -> Compliance portal"
     }
@@ -770,14 +782,39 @@ function ConnectEdiscovery ([pscredential]$access_credential){
         MAADWriteInfo "Initial compliance connection failed. Retrying without WAM."
 
         try {
-            Connect-IPPSSession -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -Credential $access_credential -EnableSearchOnlySession -DisableWAM -ShowBanner:$false -ErrorAction Stop | Out-Null
+            if ($AdminUsername -notin "", $null) {
+                Connect-IPPSSession -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -UserPrincipalName $AdminUsername -EnableSearchOnlySession -DisableWAM -ShowBanner:$false -ErrorAction Stop | Out-Null
+            }
+            else {
+                Connect-IPPSSession -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -EnableSearchOnlySession -DisableWAM -ShowBanner:$false -ErrorAction Stop | Out-Null
+            }
             Start-Sleep -Seconds 5
             MAADWriteSuccess "Established access -> Compliance portal"
         }
         catch {
-            MAADWriteError "Failed to establish access -> Compliance portal"
-            MAADWriteError $compliance_connection_error
-            MAADWriteError (GetMAADExceptionMessage $_)
+            $disable_wam_error = GetMAADExceptionMessage $_
+            if ($access_credential -notin $null) {
+                MAADWriteInfo "Interactive compliance authentication failed. Attempting credential-based fallback."
+
+                try {
+                    Connect-IPPSSession -ConnectionUri https://ps.compliance.protection.outlook.com/powershell-liveid -Credential $access_credential -EnableSearchOnlySession -DisableWAM -ShowBanner:$false -ErrorAction Stop | Out-Null
+                    Start-Sleep -Seconds 5
+                    MAADWriteSuccess "Established access -> Compliance portal"
+                    return
+                }
+                catch {
+                    MAADWriteError "Failed to establish access -> Compliance portal"
+                    MAADWriteError $compliance_connection_error
+                    MAADWriteError $disable_wam_error
+                    MAADWriteError (GetMAADExceptionMessage $_)
+                }
+            }
+            else {
+                MAADWriteError "Failed to establish access -> Compliance portal"
+                MAADWriteError $compliance_connection_error
+                MAADWriteError $disable_wam_error
+            }
+
             MAADWriteInfo "eDiscovery search operations require a Connect-IPPSSession search-only session and ExchangeOnlineManagement 3.9.0 or later"
             MAADWriteInfo "If WAM keeps failing, retry from a fresh Windows PowerShell 5.1 session after importing ExchangeOnlineManagement 3.9.0+"
         }
