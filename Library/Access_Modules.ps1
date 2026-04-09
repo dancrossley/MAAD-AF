@@ -465,28 +465,7 @@ function AccessSharepoint {
     ###Connect Sharepoint
     MAADWriteProcess "Attempting access to SharePoint"
 
-    #Find the sharepoint URL
-    if ($sharepoint_url -notin "No","no","N","n"){
-        try {
-            $tenant = $AdminUsername.Split("@")[1]
-            $tenant_intel = Invoke-AADIntReconAsOutsider -DomainName $tenant
-
-            foreach ($domain in $tenant_intel){
-                if ($domain.Name -match ".onmicrosoft.com" -and $domain.Name -notmatch ".mail.onmicrosoft.com"){
-                    $global:sharepoint_tenant = $domain.Name.Split(".")[0]
-                }
-            }
-            $sharepoint_url = "https://$global:sharepoint_tenant.sharepoint.com"
-            MAADWriteProcess "SharePoint url -> $sharepoint_url"
-        }
-        catch {
-            # Do nothing
-            MAADWriteError "Failed to automatically discover SharePoint url"
-        }
-    }
-    if ($sharepoint_url -eq $null){
-        $sharepoint_url = Read-Host "`n[?] Manually enter SharePoint URL (https://tenant.sharepoint.com)"
-    }
+    $sharepoint_url = Read-Host "`n[?] Enter SharePoint URL (https://tenant.sharepoint.com)"
     if ($sharepoint_url -in $null,""){
         MAADWriteError "Sharepoint URL not found"
         break
@@ -618,31 +597,7 @@ function AccessSharepointAdmin {
         $AccessToken
     )
 
-    #Find the sharepoint URL
-    if ($sharepoint_admin_url -eq $null){
-        try {
-            MAADWriteProcess "Attempting to discover target SharePoint Admin URL"
-            $tenant = $AdminUsername.Split("@")[1]
-            $tenant_intel = Invoke-AADIntReconAsOutsider -DomainName $tenant
-
-            foreach ($domain in $tenant_intel){
-                if ($domain.Name -match ".onmicrosoft.com" -and $domain.Name -notmatch ".mail.onmicrosoft.com"){
-                    $global:sharepoint_tenant = $domain.Name.Split(".")[0]
-                }
-            }
-            $sharepoint_url = "https://$global:sharepoint_tenant.sharepoint.com"
-            MAADWriteProcess "SharePoint url -> $sharepoint_url"
-            $sharepoint_admin_url = "https://$global:sharepoint_tenant-admin.sharepoint.com"
-            MAADWriteProcess "SharePoint admin url -> $sharepoint_admin_url"
-        }
-        catch {
-            #Do nothing
-            MAADWriteError "Failed to automatically discover SharePoint Admin URL"
-        }
-    }
-    if ($sharepoint_admin_url -eq $null){
-        $sharepoint_admin_url = Read-Host "`n[?] Manually enter SharePoint Admin URL (https://tenant-admin.sharepoint.com)"
-    }
+    $sharepoint_admin_url = Read-Host "`n[?] Enter SharePoint Admin URL (https://tenant-admin.sharepoint.com)"
     if ($sharepoint_admin_url -in $null,""){
         MAADWriteError "Sharepoint Admin URL not found"
         break

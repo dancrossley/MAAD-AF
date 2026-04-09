@@ -26,7 +26,7 @@ function InitializeMAADPowerShellLimits {
 function RequiredModules {
     ###This function checks for required modules by MAAD and Installs them if unavailable. Some modules have specific version requirements specified in the dictionary values
     InitializeMAADPowerShellLimits
-    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Users" = "";"Microsoft.Entra.DirectoryManagement" = "";"Microsoft.Entra.Governance" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.9.0";"MicrosoftTeams" = "5.7.0";"AADInternals" = "0.9.2";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Authentication" = "";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
+    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Users" = "";"Microsoft.Entra.DirectoryManagement" = "";"Microsoft.Entra.Governance" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.9.0";"MicrosoftTeams" = "5.7.0";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Authentication" = "";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
     $missing_modules = @{}
     $installed_modules = @{}
     $graph_modules = @("Microsoft.Graph.Identity.SignIns","Microsoft.Graph.Applications","Microsoft.Graph.Users","Microsoft.Graph.Groups")
@@ -70,28 +70,60 @@ function RequiredModules {
         elseif ($allow -notin "No","no","N","n") {
             MAADWriteProcess "Installing missing modules"
 
-            Set-ExecutionPolicy Unrestricted -Force
-            Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted
+            try {
+                Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force -ErrorAction Stop
+            }
+            catch {
+                MAADWriteInfo "Unable to change execution policy for this session"
+                MAADWriteInfo $_.Exception.Message
+            }
+
+            try {
+                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Confirm:$false -ErrorAction Stop | Out-Null
+            }
+            catch {
+                MAADWriteInfo "NuGet provider install was not completed automatically"
+                MAADWriteInfo $_.Exception.Message
+            }
+
+            try {
+                Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted -ErrorAction Stop
+            }
+            catch {
+                MAADWriteInfo "Unable to set PSGallery as trusted"
+                MAADWriteInfo $_.Exception.Message
+            }
+
+            $modules_to_install = @($missing_modules.Keys | Sort-Object `
+                @{Expression = {
+                    if ($_ -eq "Microsoft.Graph.Authentication") { 0 }
+                    elseif ($_ -like "Microsoft.Graph.*") { 1 }
+                    elseif ($_ -eq "Microsoft.Entra") { 2 }
+                    elseif ($_ -like "Microsoft.Entra.*") { 3 }
+                    else { 4 }
+                }}, `
+                @{Expression = { $_ }})
 
             #Install missing modules
-            foreach ($module in $missing_modules.Keys){
+            foreach ($module in $modules_to_install){
                 MAADWriteProcess "Module missing -> $module"
                 MAADWriteProcess "Installing -> $module"
                 try {
                     if ($missing_modules[$module] -eq "") {
-                        Install-Module -Name $module -Confirm:$False -WarningAction SilentlyContinue -ErrorAction Stop
+                        Install-Module -Name $module -Confirm:$False -WarningAction SilentlyContinue -AllowClobber -Force -ErrorAction Stop
                         #Add module to installed modules dict
                         $installed_modules[$module] = $RequiredModules[$module]
                         MAADWriteSuccess "Installed module -> $module"
                     }
                     else {
-                        Install-Module -Name $module -RequiredVersion $missing_modules[$module] -Confirm:$False -WarningAction SilentlyContinue -ErrorAction Stop
+                        Install-Module -Name $module -RequiredVersion $missing_modules[$module] -Confirm:$False -WarningAction SilentlyContinue -AllowClobber -Force -ErrorAction Stop
                         $installed_modules[$module] = $RequiredModules[$module]
                         MAADWriteSuccess "Installed module -> $module"
                     }
                 }
                 catch {
                     MAADWriteError "Failed to install -> $module"
+                    MAADWriteError $_.Exception.Message
                     MAADWriteProcess "Skipping module -> $module"
                 }   
             }

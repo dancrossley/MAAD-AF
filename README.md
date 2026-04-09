@@ -20,6 +20,11 @@ MAAD-AF is developed natively in PowerShell.
 # Launch and bypass dependency checks
 > MAAD_Attack.ps1 -ForceBypassDependencyCheck
 ```
+If PowerShell blocks the script with an execution policy error on first run, use:
+```
+> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+> .\MAAD_Attack.ps1
+```
 
 ## Requirements
  1. Windows host
@@ -31,7 +36,9 @@ MAAD-AF is developed natively in PowerShell.
 ## Installation Notes
 - MAAD-AF now uses Microsoft Entra PowerShell instead of the retired AzureAD and MSOnline modules.
 - On first launch, MAAD-AF will check for and install the required Entra, Graph, and service-specific PowerShell modules.
+- On a clean Windows host, PowerShell may block local scripts by default. If `MAAD_Attack.ps1` is blocked by execution policy, run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` in that PowerShell 5.1 session before launching MAAD-AF.
 - Windows PowerShell 5.1 is still supported. MAAD-AF raises PowerShell session limits automatically to accommodate larger Entra and Graph modules.
+- MAAD-AF no longer installs or depends on `AADInternals`. SharePoint site and SharePoint admin access now require you to enter the target URL manually when prompted.
 - If you already have older Microsoft Graph PowerShell modules installed side-by-side, MAAD-AF can load an incompatible mix of Graph and Entra dependencies. This may cause import failures, missing-type errors, or method-not-found errors when Entra-backed commands run. Before first use, it can help to check for multiple installed versions of key Graph modules such as `Microsoft.Graph.Authentication`, `Microsoft.Graph.Users`, `Microsoft.Graph.Groups`, `Microsoft.Graph.Applications`, and `Microsoft.Graph.Identity.SignIns`, then remove any stale copies from an elevated Windows PowerShell 5.1 session. If PowerShell reports that a module is in use, close all PowerShell or Windows Terminal sessions and retry from a fresh elevated window before launching MAAD-AF.
 
 ## Authentication Notes
