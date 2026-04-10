@@ -258,12 +258,6 @@ function InitializeMAADEntraCompatibility {
         # Do nothing.
     }
 
-    try {
-        Enable-EntraAzureADAlias | Out-Null
-    }
-    catch {
-        # Use Test-EntraScript during development to validate any remaining alias-backed AzureAD calls.
-    }
 }
 
 function ClearActiveSessions {
@@ -744,7 +738,7 @@ function EnterApplication ($input_prompt){
                 Write-Host ""
                 MAADWriteProcess "Recon -> Searching Applications"
                 # Get-AzureADApplication | Format-Table -Property DisplayName, AppId, ObjectId, Description
-                $all_apps = Get-AzureADApplication | Select-Object DisplayName, AppId, ObjectId
+                $all_apps = Get-EntraApplication -All | Select-Object DisplayName, AppId, Id
                 Show-MAADOptionsView -OptionsList $all_apps -NewWindowMessage "Applications in tenant"
                 $repeat = $true
             }
@@ -770,7 +764,7 @@ function ValidateApplication ($input_application){
     $global:application_found = $false
     Write-Host ""
 
-    $check_application = Get-AzureADApplication  -SearchString $input_application
+    $check_application = Get-EntraApplication -SearchString $input_application
     
     if ($check_application -eq $null){
         MAADWriteError "Application Not Found"
@@ -784,7 +778,7 @@ function ValidateApplication ($input_application){
 
             Read-Host "`n[?] Press enter to view all matched applications"
             Write-Host ""
-            $check_application | Format-Table -Property DisplayName, AppId, ObjectId -AutoSize -Wrap
+            $check_application | Format-Table -Property DisplayName, AppId, Id -AutoSize -Wrap
             $global:application_found = $false
         }
         else {

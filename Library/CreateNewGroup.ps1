@@ -1,6 +1,6 @@
 #Create New Group
 
-function CreateNewAzureADGroup {
+function CreateNewEntraGroup {
     $new_group_display_name = Read-Host -Prompt "`n[?] Enter name to create new group"
     $new_group_description = Read-Host -Prompt "`n[?] Enter description for new group (leave blank and press [enter] for default description)"
     Write-Host ""
@@ -13,7 +13,7 @@ function CreateNewAzureADGroup {
     #Create the group with set parameters
     try {
         MAADWriteProcess "Attempting to create new Group -> $new_group_display_name"
-        $new_group = New-AzureADGroup -DisplayName $new_group_display_name -Description $new_group_description -MailEnabled $false -SecurityEnabled $true -ErrorAction Stop
+        $new_group = New-EntraGroup -DisplayName $new_group_display_name -Description $new_group_description -MailEnabled $false -SecurityEnabled $true -MailNickname (New-Guid).ToString().Substring(0,10) -ErrorAction Stop
         Start-Sleep -Seconds 10
         MAADWriteSuccess "New Group Created"
         $allow_undo = $true
@@ -29,9 +29,9 @@ function CreateNewAzureADGroup {
         if ($user_confirm -notin "No","no","N","n") {
             try {
                 MAADWriteProcess "Attempting to delete new Group -> $new_group_display_name"
-                $group_details = Get-AzureADGroup -SearchString $new_group_display_name
-                $group_id = $group_details.ObjectId
-                Remove-AzureADGroup -ObjectId $group_id -ErrorAction Stop | Out-Null
+                $group_details = Get-EntraGroup -SearchString $new_group_display_name
+                $group_id = $group_details.Id
+                Remove-EntraGroup -GroupId $group_id -ErrorAction Stop | Out-Null
                 MAADWriteSuccess "New Group Deleted"
             }
             catch {

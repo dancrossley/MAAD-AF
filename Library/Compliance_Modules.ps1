@@ -108,10 +108,10 @@ function E_Discovery_Priv_Esc {
     $admin_role_members = Get-eDiscoveryCaseAdmin
 
     #Check eDiscovery Admin 
-    if ((Get-AzureADUser -ObjectId $target_account).DisplayName -notin $admin_role_members.Name){
+    if ((Get-EntraUser -UserId $target_account).DisplayName -notin $admin_role_members.Name){
 
         ###Not eDiscovery Manager
-        if ((Get-AzureADUser -ObjectId $target_account).DisplayName -notin $role_members.Name){ 
+        if ((Get-EntraUser -UserId $target_account).DisplayName -notin $role_members.Name){ 
             #Escalate to Manager
             try {
                 MAADWriteProcess "Attempting privilege escalation -> eDiscovery Manager role" 

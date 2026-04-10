@@ -15,7 +15,7 @@ function ExternalTeamsInvite {
         $external_email_address = Read-Host -Prompt "`n[?] Enter (ext/int) email to grant access to Teams"
         Write-Host ""
 
-        New-AzureADMSInvitation -InvitedUserDisplayName "$external_email_address" -InvitedUserEmailAddress $external_email_address -InviteRedirectURL https://myapps.microsoft.com -SendInvitationMessage $true | Out-Null
+        New-EntraInvitation -InvitedUserDisplayName "$external_email_address" -InvitedUserEmailAddress $external_email_address -InviteRedirectUrl https://myapps.microsoft.com -SendInvitationMessage $true | Out-Null
     }
     catch {
         #Do nothing.

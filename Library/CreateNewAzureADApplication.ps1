@@ -1,5 +1,5 @@
-#Create new Azure AD Application
-function CreateNewAzureADApplication{
+#Create new Entra Application
+function CreateNewEntraApplication{
     [string]$new_app_display_name = Read-Host "`n[?] Enter a display name for the new application"
     Write-Host ""
 
