@@ -51,6 +51,10 @@ If PowerShell blocks the script with an execution policy error on first run, use
 - A lightweight PowerShell validation framework is available under [`Tests/README.md`](Tests/README.md).
 - The test harness inventories every MAAD function, validates parse and load behavior automatically, runs safe smoke tests for selected helper and local-only functions, supports opt-in live checks for a small read-only subset, and generates Markdown and JSON reports showing which functions passed, failed, or still require manual live validation.
 
+## Wiki
+- Repo-local wiki pages are available under [`wiki/Home.md`](wiki/Home.md).
+- The wiki currently covers MAAD-AF execution flow, authentication and access types, feature-to-session dependencies, and the current structure/refactor plan.
+
 ## Features
 - Attack emulation tool
 - Fully interactive (no-commands) workflow
