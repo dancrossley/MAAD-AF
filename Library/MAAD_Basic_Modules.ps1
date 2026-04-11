@@ -427,6 +427,7 @@ function EnterAccount ($input_prompt){
 function ValidateAccount ($input_user_account){
     ###This function returns if an account exists in Azure AD ($account_found = $true) or not ($account_found = $false)
     $global:account_found = $false
+    $global:account_id = $null
     Write-Host ""
 
     try {
@@ -438,28 +439,41 @@ function ValidateAccount ($input_user_account){
         $global:account_found = $false
         return
     }
-    
+
     if ($check_account.Count -eq 0){
         MAADWriteError "Account Not Found"
         $global:account_found = $false
+        return
     }
-    
-    else {
-        if ($check_account.Count -gt 1){
-            MAADWriteError "Recon -> Multiple accounts found matching term"
-            MAADWriteInfo "Lets take it slow ;) Try more specific search to target one account"
 
-            Read-Host "`n[?] Press enter to view all matched accounts"
-            Write-Host ""
-            $check_account | Format-Table -Property UserPrincipalName, Id -AutoSize
-            $global:account_found = $false
-        }
-        else {
-            $global:account_username = $check_account[0].UserPrincipalName
-            $global:account_found = $true
-            MAADWriteProcess "Account Found : $global:account_username"
-        }
+    # Prefer an exact (case-insensitive) UPN or DisplayName match when multiple results come back
+    $exact_account = @($check_account | Where-Object {
+        $_.UserPrincipalName -eq $input_user_account -or $_.DisplayName -eq $input_user_account
+    })
+
+    if ($exact_account.Count -eq 1) {
+        $global:account_username = $exact_account[0].UserPrincipalName
+        $global:account_id = $exact_account[0].Id
+        $global:account_found = $true
+        MAADWriteProcess "Account Found : $global:account_username"
+        return
     }
+
+    if ($check_account.Count -gt 1){
+        MAADWriteError "Recon -> Multiple accounts found matching term"
+        MAADWriteInfo "Lets take it slow ;) Try more specific search to target one account"
+
+        Read-Host "`n[?] Press enter to view all matched accounts"
+        Write-Host ""
+        $check_account | Format-Table -Property UserPrincipalName, Id -AutoSize
+        $global:account_found = $false
+        return
+    }
+
+    $global:account_username = $check_account[0].UserPrincipalName
+    $global:account_id = $check_account[0].Id
+    $global:account_found = $true
+    MAADWriteProcess "Account Found : $global:account_username"
 }
 
 function EnterGroup ($input_prompt){
@@ -497,6 +511,7 @@ function EnterGroup ($input_prompt){
 function ValidateGroup ($input_group){
     ###This function returns if a group exists in Azure AD ($group_found = $true) or not ($group_found = $false)
     $global:group_found = $false
+    $global:group_id = $null
     Write-Host ""
 
     try {
@@ -508,28 +523,38 @@ function ValidateGroup ($input_group){
         $global:group_found = $false
         return
     }
-    
+
     if ($check_group.Count -eq 0){
         MAADWriteError "Group Not Found"
         $global:group_found = $false
+        return
     }
-    
-    else {
-        if ($check_group.Count -gt 1){
-            MAADWriteProcess "Recon -> Multiple groups found matching term"
-            MAADWriteInfo "Lets take things slow ;) Be more specific to target one group"
 
-            Read-Host "`n[?] Press enter to view all matched groups"
-            Write-Host ""
-            $check_group | Format-Table -Property DisplayName, Id -AutoSize
-            $global:group_found = $false
-        }
-        else {
-            $global:group_name = $check_group[0].DisplayName
-            $global:group_found = $true
-            MAADWriteProcess "Group Found : $global:group_name"
-        }
+    # Prefer an exact (case-insensitive) DisplayName match when the search returns substrings
+    $exact_group = @($check_group | Where-Object { $_.DisplayName -eq $input_group })
+    if ($exact_group.Count -eq 1) {
+        $global:group_name = $exact_group[0].DisplayName
+        $global:group_id = $exact_group[0].Id
+        $global:group_found = $true
+        MAADWriteProcess "Group Found : $global:group_name"
+        return
     }
+
+    if ($check_group.Count -gt 1){
+        MAADWriteProcess "Recon -> Multiple groups found matching term"
+        MAADWriteInfo "Lets take things slow ;) Be more specific to target one group"
+
+        Read-Host "`n[?] Press enter to view all matched groups"
+        Write-Host ""
+        $check_group | Format-Table -Property DisplayName, Id -AutoSize
+        $global:group_found = $false
+        return
+    }
+
+    $global:group_name = $check_group[0].DisplayName
+    $global:group_id = $check_group[0].Id
+    $global:group_found = $true
+    MAADWriteProcess "Group Found : $global:group_name"
 }
 
 
@@ -760,33 +785,85 @@ function EnterApplication ($input_prompt){
 }
 
 function ValidateApplication ($input_application){
-    ###This function returns if a group exists in Azure AD ($application_found = $true) or not ($application_found = $false)
+    ###This function returns if an application exists in Entra ($application_found = $true) or not ($application_found = $false)
     $global:application_found = $false
+    $global:application_id = $null
+    $global:application_app_id = $null
     Write-Host ""
 
-    $check_application = Get-EntraApplication -SearchString $input_application
-    
-    if ($check_application -eq $null){
+    try {
+        $check_application = @(Get-EntraApplication -SearchString $input_application -ErrorAction Stop)
+    }
+    catch {
+        MAADWriteError "Failed to search for applications"
+        MAADWriteError $_.Exception.Message
+        $global:application_found = $false
+        return
+    }
+
+    if ($check_application.Count -eq 0){
         MAADWriteError "Application Not Found"
         $global:application_found = $false
+        return
     }
-    
-    else {
-        if ($check_application.GetType().BaseType.Name -eq "Array"){
-            MAADWriteError "Recon -> Multiple applications found matching your term"
-            MAADWriteInfo "Lets take things slow ;) Be more specific to target one application"
 
-            Read-Host "`n[?] Press enter to view all matched applications"
-            Write-Host ""
-            $check_application | Format-Table -Property DisplayName, AppId, Id -AutoSize -Wrap
+    # If the user typed an AppId or Object Id (GUID), try direct lookup first
+    if ($input_application -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+        $direct_match = @($check_application | Where-Object { $_.AppId -eq $input_application -or $_.Id -eq $input_application })
+        if ($direct_match.Count -eq 1) {
+            $global:application_name = $direct_match[0].DisplayName
+            $global:application_id = $direct_match[0].Id
+            $global:application_app_id = $direct_match[0].AppId
+            $global:application_found = $true
+            MAADWriteProcess "Application Found : $global:application_name ($global:application_app_id)"
+            return
+        }
+    }
+
+    # Prefer an exact (case-insensitive) DisplayName match when multiple results come back
+    $exact_application = @($check_application | Where-Object { $_.DisplayName -eq $input_application })
+    if ($exact_application.Count -eq 1) {
+        $global:application_name = $exact_application[0].DisplayName
+        $global:application_id = $exact_application[0].Id
+        $global:application_app_id = $exact_application[0].AppId
+        $global:application_found = $true
+        MAADWriteProcess "Application Found : $global:application_name ($global:application_app_id)"
+        return
+    }
+
+    if ($check_application.Count -gt 1){
+        MAADWriteProcess "Recon -> Multiple applications found matching your term"
+        MAADWriteInfo "Multiple applications share this name. Enter AppId to disambiguate."
+        Write-Host ""
+        $check_application | Format-Table -Property DisplayName, AppId, Id -AutoSize -Wrap
+
+        $selected_app_id = Read-Host -Prompt "`n[?] Enter AppId of the application to target (or press [enter] to cancel)"
+        if ($selected_app_id -in "", $null) {
             $global:application_found = $false
+            return
+        }
+
+        $picked = @($check_application | Where-Object { $_.AppId -eq $selected_app_id -or $_.Id -eq $selected_app_id })
+        if ($picked.Count -eq 1) {
+            $global:application_name = $picked[0].DisplayName
+            $global:application_id = $picked[0].Id
+            $global:application_app_id = $picked[0].AppId
+            $global:application_found = $true
+            MAADWriteProcess "Application Found : $global:application_name ($global:application_app_id)"
         }
         else {
-            $global:application_name = $check_application.DisplayName
-            $global:application_found = $true
-            MAADWriteProcess "Application Found : $global:application_name"
+            MAADWriteError "AppId not matched in the result set"
+            $global:application_found = $false
         }
+        return
     }
+
+    # Single match
+    $global:application_name = $check_application[0].DisplayName
+    $global:application_id = $check_application[0].Id
+    $global:application_app_id = $check_application[0].AppId
+    $global:application_found = $true
+    MAADWriteProcess "Application Found : $global:application_name ($global:application_app_id)"
 }
 
 function EnterSharepointSite ($input_prompt){

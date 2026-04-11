@@ -5,11 +5,11 @@ function AddObjectToGroup {
 
     EnterAccount "`n[?] Enter account to add to group (user@org.com)"
     $target_account = $global:account_username
-    $target_account_id = (Get-EntraUser -SearchString $target_account).Id
+    $target_account_id = $global:account_id
 
     EnterGroup "`n[?] Enter group to add the account (press [enter] to find groups)"
     $target_group = $global:group_name
-    $target_group_id = (Get-EntraGroup -SearchString $target_group).Id
+    $target_group_id = $global:group_id
 
     #Add account to group
     try {

