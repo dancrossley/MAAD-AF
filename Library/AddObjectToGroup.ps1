@@ -11,6 +11,13 @@ function AddObjectToGroup {
     $target_group = $global:group_name
     $target_group_id = $global:group_id
 
+    if ([string]::IsNullOrWhiteSpace($target_account_id) -or [string]::IsNullOrWhiteSpace($target_group_id)) {
+        MAADWriteError "Resolved account or group ID is empty — cannot continue"
+        MAADWriteInfo "account_id='$target_account_id' group_id='$target_group_id'"
+        MAADPause
+        return
+    }
+
     #Add account to group
     try {
         MAADWriteProcess "Adding account to group"
@@ -21,7 +28,8 @@ function AddObjectToGroup {
         $allow_undo = $true
     }
     catch {
-        MAADWriteError "Failed to add account to group" 
+        MAADWriteError "Failed to add account to group"
+        MAADWriteError (GetMAADExceptionMessage $_)
     }
 
     if ($allow_undo -eq $true) {
@@ -37,6 +45,7 @@ function AddObjectToGroup {
             }
             catch {
                 MAADWriteError "Failed to remove account from the group"
+                MAADWriteError (GetMAADExceptionMessage $_)
             }
         }
     }
