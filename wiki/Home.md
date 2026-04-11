@@ -7,7 +7,6 @@ It is organized around the questions that come up most often when changing or te
 - [Execution Flow](./Execution-Flow.md)
 - [Authentication and Access](./Authentication-and-Access.md)
 - [Feature to Session Matrix](./Feature-to-Session-Matrix.md)
-- [Code Structure and Refactor Plan](./Code-Structure-and-Refactor-Plan.md)
 
 ## What This Wiki Covers
 
@@ -22,7 +21,6 @@ It is organized around the questions that come up most often when changing or te
 1. [Execution Flow](./Execution-Flow.md)
 2. [Authentication and Access](./Authentication-and-Access.md)
 3. [Feature to Session Matrix](./Feature-to-Session-Matrix.md)
-4. [Code Structure and Refactor Plan](./Code-Structure-and-Refactor-Plan.md)
 
 ## Notes
 
