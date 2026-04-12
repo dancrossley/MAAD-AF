@@ -36,7 +36,7 @@ Ideally start with a clean Windows VM snapshot. If that is not possible, clean t
 Get-Module Microsoft.Graph*,Microsoft.Entra*,Az*,ExchangeOnlineManagement,MicrosoftTeams,PnP.PowerShell
 ```
 
-4. If you suspect old Graph versions persist, list installed versions and remove the older copies before launching MAAD-VF:
+4. If you suspect old Graph versions persist, list installed versions first:
 
 ```powershell
 Get-InstalledModule Microsoft.Graph.Authentication -AllVersions | Sort Version
@@ -46,7 +46,39 @@ Get-InstalledModule Microsoft.Graph.Applications -AllVersions | Sort Version
 Get-InstalledModule Microsoft.Graph.Identity.SignIns -AllVersions | Sort Version
 ```
 
-5. Relaunch MAAD-VF from that same fresh session.
+5. If more than one version is installed for any of the modules above, remove the older versions explicitly. Replace `2.6.1` below with the older version you want to remove:
+
+```powershell
+Uninstall-Module Microsoft.Graph.Authentication -RequiredVersion 2.6.1 -Force
+Uninstall-Module Microsoft.Graph.Users -RequiredVersion 2.6.1 -Force
+Uninstall-Module Microsoft.Graph.Groups -RequiredVersion 2.6.1 -Force
+Uninstall-Module Microsoft.Graph.Applications -RequiredVersion 2.6.1 -Force
+Uninstall-Module Microsoft.Graph.Identity.SignIns -RequiredVersion 2.6.1 -Force
+```
+
+6. If PowerShell says a module is currently in use, close all PowerShell and Windows Terminal sessions, open one new elevated Windows PowerShell 5.1 session, and retry the uninstall command.
+
+7. If `Uninstall-Module` does not remove the old version cleanly, confirm the installed paths and remove only the stale version folder:
+
+```powershell
+Get-Module -ListAvailable Microsoft.Graph.Authentication,Microsoft.Graph.Users,Microsoft.Graph.Groups,Microsoft.Graph.Applications,Microsoft.Graph.Identity.SignIns |
+    Sort Name,Version |
+    Select Name,Version,Path
+```
+
+Then remove the specific old folder that still exists, for example:
+
+```powershell
+Remove-Item 'C:\Program Files\WindowsPowerShell\Modules\Microsoft.Graph.Authentication\2.6.1' -Recurse -Force
+Remove-Item 'C:\Program Files\WindowsPowerShell\Modules\Microsoft.Graph.Users\2.6.1' -Recurse -Force
+Remove-Item 'C:\Program Files\WindowsPowerShell\Modules\Microsoft.Graph.Groups\2.6.1' -Recurse -Force
+Remove-Item 'C:\Program Files\WindowsPowerShell\Modules\Microsoft.Graph.Applications\2.6.1' -Recurse -Force
+Remove-Item 'C:\Program Files\WindowsPowerShell\Modules\Microsoft.Graph.Identity.SignIns\2.6.1' -Recurse -Force
+```
+
+8. Rerun the `Get-InstalledModule ... -AllVersions` commands and confirm only the intended version remains for each module.
+
+9. Relaunch MAAD-VF from that same fresh session.
 
 If the environment has been heavily used for previous auth or module troubleshooting, a reboot is often faster and safer than trying to clean up partially loaded assemblies in-place.
 
