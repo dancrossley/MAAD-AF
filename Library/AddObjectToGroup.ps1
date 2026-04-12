@@ -7,7 +7,7 @@ function AddObjectToGroup {
     $target_account = $global:account_username
     $target_account_id = $global:account_id
 
-    EnterGroup "`n[?] Enter group to add the account (press [enter] to find groups)"
+    EnterGroup "`n[?] Enter a cloud-only security group to add the account (press [enter] to find groups)"
     $target_group = $global:group_name
     $target_group_id = $global:group_id
 
