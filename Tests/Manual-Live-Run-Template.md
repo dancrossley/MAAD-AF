@@ -1,6 +1,6 @@
 # MAAD Manual Live Regression Run Template
 
-Copy this file for each live regression run and save it under `TestReports/` or another agreed results location.
+Copy this file for each operator test run and save it under `TestReports/` or another agreed results location.
 
 ## Run Metadata
 
@@ -12,113 +12,68 @@ Copy this file for each live regression run and save it under `TestReports/` or 
 - OS:
 - PowerShell Version:
 - Tenant:
-- Validation Scope:
-- Source of Truth for Cleanup Notes:
 
-## Status Legend
+## Sessions Ready Before Testing
 
-- `Pass`
-- `Pass with Notes`
-- `Fail`
-- `Blocked`
-- `Not Run`
+- Entra:
+- Exchange Online:
+- Compliance (eDiscovery):
+- Teams:
+- Az:
 
-## Pre-Run Checks
-
-- Clean host or VM snapshot used:
-- `.\Tests\Invoke-MAADValidation.ps1 -Mode Static,Smoke` result:
-- MAAD launched successfully on clean session:
-- Execution policy notes:
-- Known environment deviations:
-
-## Installed Module Baseline
-
-- Microsoft.Entra:
-- Microsoft.Entra.Users:
-- Microsoft.Entra.SignIns:
-- Microsoft.Entra.Beta.SignIns:
-- Microsoft.Graph.Authentication:
-- Microsoft.Graph.Users:
-- Microsoft.Graph.Groups:
-- Microsoft.Graph.Applications:
-- Microsoft.Graph.Identity.SignIns:
-- ExchangeOnlineManagement:
-- MicrosoftTeams:
-- PnP.PowerShell:
-- Microsoft.Online.SharePoint.PowerShell:
-- Az.Accounts:
-- Az.Resources:
-
-## Named Test Objects For This Run
+## Test Data Used
 
 - Disposable user:
 - Disposable group:
-- Trusted named location:
 - Test mailbox:
+- Test application:
+- Test team:
+- External email:
+- Trusted named location:
 - eDiscovery case:
 - eDiscovery search:
-- Test team:
-- External invite target:
-- Test application:
 
-## Session Baseline
+## Results
 
-- Entra access:
-- Exchange access:
-- Compliance access:
-- Teams access:
-- SharePoint admin access:
-- SharePoint site access:
-- Az access:
+Use only:
 
-## Results Summary
+- `Pass`
+- `Fail`
+- `Blocked`
 
-| Test ID | Status | Notes | Cleanup Status |
-|---|---|---|---|
-| MLR-001 |  |  |  |
-| MLR-002 |  |  |  |
-| MLR-003 |  |  |  |
-| MLR-004 |  |  |  |
-| MLR-005 |  |  |  |
-| MLR-006 |  |  |  |
-| MLR-007 |  |  |  |
-| MLR-008 |  |  |  |
-| MLR-009 |  |  |  |
-| MLR-010 |  |  |  |
-| MLR-011 |  |  |  |
-| MLR-012 |  |  |  |
-| MLR-013 |  |  |  |
-| MLR-101 |  |  |  |
-| MLR-102 |  |  |  |
-| MLR-103 |  |  |  |
-| MLR-104 |  |  |  |
-| MLR-105 |  |  |  |
-| MLR-106 |  |  |  |
+| Test ID | Result | Object Used | Exact Error Or Note | Cleanup Done |
+|---|---|---|---|---|
+| REG-01 |  |  |  |  |
+| REG-02 |  |  |  |  |
+| REG-03 |  |  |  |  |
+| REG-04 |  |  |  |  |
+| REG-05 |  |  |  |  |
+| REG-06 |  |  |  |  |
+| REG-07 |  |  |  |  |
+| REG-08 |  |  |  |  |
+| REG-09 |  |  |  |  |
+| REG-10 |  |  |  |  |
+| REG-11 |  |  |  |  |
+| REG-12 |  |  |  |  |
+| REG-13 |  |  |  |  |
+| REG-14 |  |  |  |  |
+| REG-15 |  |  |  |  |
+| REG-16 |  |  |  |  |
 
-## Failures and Blockers
-
-### Failures
+## Failures To Follow Up
 
 - 
 
-### Blockers
+## Cleanup Check
 
-- 
+- All temporary users cleaned up:
+- All temporary group changes cleaned up:
+- All temporary role assignments cleaned up:
+- All temporary mailbox or MFA changes restored:
+- All temporary policies cleaned up:
+- All temporary eDiscovery objects cleaned up:
 
-## Cleanup Verification
+## Overall Decision
 
-- All created users removed or retained intentionally:
-- All temporary roles removed:
-- All temporary group memberships removed:
-- All temporary policies or named locations removed:
-- All temporary searches and cases removed:
-- All mailbox or MFA settings restored:
-
-## Follow-Up Actions
-
-- 
-
-## Sign-Off
-
-- Ready to share with additional users: `Yes / No`
+- Ready for wider operator use: `Yes / No`
 - Notes:

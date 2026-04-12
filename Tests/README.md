@@ -117,12 +117,19 @@ The intent is:
 2. copy the run template for each regression pass
 3. attach or archive the completed results with the release or validation cycle
 
+The current runbook is written as an operator guide, not a maintainer guide. It:
+
+- focuses on tenant-facing workflows in `Account`, `Group`, `Application`, `Entra`, `Exchange`, `Teams`, and `Compliance`
+- excludes `Pre-Attack`, `Access`, `MAAD-AF`, and `Exit`
+- treats service connectivity as a prerequisite instead of a test case
+- uses simple `Pass`, `Fail`, and `Blocked` results
+
 The recommended workflow is:
 
 1. start from a clean Windows PowerShell 5.1 host or VM snapshot
 2. run `Static` and `Smoke` validation first
-3. execute the `P0` manual live cases in order
-4. execute the targeted regression cases for recently changed code paths
+3. establish the required service sessions
+4. execute the manual regression cases in order
 5. verify cleanup before treating the build as ready for other operators
 
 ## CI
