@@ -1,9 +1,13 @@
 #Create new credentials for application
 
 function GenerateNewApplicationCredentials{
-    EnterApplication("`n[?] Enter Application name to generate credential for")
+    EnterApplication("`n[?] Enter Application name or AppId to generate credential for")
+    if ($global:application_found -ne $true) {
+        MAADPause
+        return
+    }
     $target_app = $global:application_name
-    $target_app_object_id = (Get-EntraApplication -Filter "displayName eq '$target_app'").Id
+    $target_app_object_id = $global:application_id
 
     #Generate credential and save credentials to file
     try {

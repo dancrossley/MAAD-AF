@@ -153,12 +153,12 @@ function MAADAttackArsenal{
                     "Account.8" {RemoveAccess}
 
                     "Group.1" {MAADGetAllAADGroups}
-                    "Group.2" {CreateNewAzureADGroup}
+                    "Group.2" {CreateNewEntraGroup}
                     "Group.3" {AddObjectToGroup}
                     "Group.4" {AssignRole "group"}
 
                     "Application.1" {MAADGetAllServicePrincipal}
-                    "Application.2" {CreateNewAzureADApplication}
+                    "Application.2" {CreateNewEntraApplication}
                     "Application.3" {GenerateNewApplicationCredentials}
                     
                     "Entra.1" {ModifyTrustedNetworkConfig}

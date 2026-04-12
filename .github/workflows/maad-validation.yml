@@ -20,7 +20,9 @@ jobs:
         run: .\Tests\Invoke-MAADValidation.ps1 -Mode Static,Smoke -FailOnFailure
 
       - name: Upload validation reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: maad-validation-reports
           path: TestReports
+          if-no-files-found: warn

