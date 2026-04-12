@@ -791,6 +791,24 @@ function ValidateApplication ($input_application){
     $global:application_app_id = $null
     Write-Host ""
 
+    # If the user typed an AppId GUID, query it directly before search-string flow
+    if ($input_application -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+        try {
+            $direct_application = Get-EntraApplication -ApplicationId $input_application -ErrorAction Stop
+            if ($null -ne $direct_application) {
+                $global:application_name = $direct_application.DisplayName
+                $global:application_id = $direct_application.Id
+                $global:application_app_id = $direct_application.AppId
+                $global:application_found = $true
+                MAADWriteProcess "Application Found : $global:application_name ($global:application_app_id)"
+                return
+            }
+        }
+        catch {
+            # Fall back to search-string flow for non-AppId GUID-like input (e.g., ObjectId)
+        }
+    }
+
     try {
         $check_application = @(Get-EntraApplication -SearchString $input_application -ErrorAction Stop)
     }
@@ -805,19 +823,6 @@ function ValidateApplication ($input_application){
         MAADWriteError "Application Not Found"
         $global:application_found = $false
         return
-    }
-
-    # If the user typed an AppId or Object Id (GUID), try direct lookup first
-    if ($input_application -match '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
-        $direct_match = @($check_application | Where-Object { $_.AppId -eq $input_application -or $_.Id -eq $input_application })
-        if ($direct_match.Count -eq 1) {
-            $global:application_name = $direct_match[0].DisplayName
-            $global:application_id = $direct_match[0].Id
-            $global:application_app_id = $direct_match[0].AppId
-            $global:application_found = $true
-            MAADWriteProcess "Application Found : $global:application_name ($global:application_app_id)"
-            return
-        }
     }
 
     # Prefer an exact (case-insensitive) DisplayName match when multiple results come back
