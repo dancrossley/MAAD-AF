@@ -1,98 +1,78 @@
-# MAAD Attack Framework
-![MAAD_Logo](images/MAAD_AF.png)                                                                     
-        
-MAAD-AF is an open-source cloud attack tool for Microsoft 365 & Entra ID(Azure AD) environments.
+# MAAD for Vectra (MAAD-VF)
+![MAAD_Logo](images/MAAD_AF.png)
 
-MAAD-AF offers simple, fast and effective security testing. Validate Microsoft cloud controls and test detection & response capabilities with a virutally zero-setup process, complete with a fully interactive workflow for executing emulated attacks. 
+MAAD for Vectra is a PowerShell-based Microsoft 365 and Entra attack emulation tool intended to execute realistic tenant actions which can be validated independently in Microsoft Entra and M365 portals, and in other detections such as Defender or SIEM. MAAD is optimised for interactive operator workflows instead of custom scripting and useful for demonstrating identity attack paths which Vectra can detect and help investigate.
 
-MAAD-AF is developed natively in PowerShell.
-
-## Usage
-1. Clone or download MAAD-AF from GitHub
-2. Start PowerShell as Admin and navigate to MAAD-AF directory
-```
-> git clone https://github.com/vectra-ai-research/MAAD-AF.git
-> cd /MAAD-AF
-```
-3. Launch MAAD-AF
-```
-> MAAD_Attack.ps1 
-# Launch and bypass dependency checks
-> MAAD_Attack.ps1 -ForceBypassDependencyCheck
-```
-If PowerShell blocks the script with an execution policy error on first run, use:
-```
-> Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-> .\MAAD_Attack.ps1
-```
+This repository is a separately maintained derivative of [vectra-ai-research/MAAD-AF](https://github.com/vectra-ai-research/MAAD-AF) and now relies on Microsoft Entra and Graph PowerShell modules rather than the retired AzureAD and MSOnline PowerShell modules.
 
 ## Requirements
- 1. Windows host
- 2. Windows PowerShell 5.1
- 3. PowerShell Gallery access and administrator rights to install required modules
- 4. Microsoft Entra PowerShell for Entra ID operations. MAAD-AF now relies on `Microsoft.Entra`, `Microsoft.Entra.Applications`, `Microsoft.Entra.Groups`, `Microsoft.Entra.SignIns`, and `Microsoft.Entra.Beta.SignIns`
- 5. Compatible Microsoft Graph PowerShell modules for Entra-backed cmdlets
 
-## Installation Notes
-- MAAD-AF now uses Microsoft Entra PowerShell instead of the retired AzureAD and MSOnline modules.
-- On first launch, MAAD-AF will check for and install the required Entra, Graph, and service-specific PowerShell modules.
-- On a clean Windows host, PowerShell may block local scripts by default. If `MAAD_Attack.ps1` is blocked by execution policy, run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass` in that PowerShell 5.1 session before launching MAAD-AF.
-- Windows PowerShell 5.1 is still supported. MAAD-AF raises PowerShell session limits automatically to accommodate larger Entra and Graph modules.
-- MAAD-AF no longer installs or depends on `AADInternals`. SharePoint site and SharePoint admin access now require you to enter the target URL manually when prompted.
-- If you already have older Microsoft Graph PowerShell modules installed side-by-side, MAAD-AF can load an incompatible mix of Graph and Entra dependencies. This may cause import failures, missing-type errors, or method-not-found errors when Entra-backed commands run. Before first use, it can help to check for multiple installed versions of key Graph modules such as `Microsoft.Graph.Authentication`, `Microsoft.Graph.Users`, `Microsoft.Graph.Groups`, `Microsoft.Graph.Applications`, and `Microsoft.Graph.Identity.SignIns`, then remove any stale copies from an elevated Windows PowerShell 5.1 session. If PowerShell reports that a module is in use, close all PowerShell or Windows Terminal sessions and retry from a fresh elevated window before launching MAAD-AF.
+- Windows host with PowerShell 5.1
+- Administrator rights and PowerShell Gallery access for dependency installation
+- Microsoft 365 / Entra test or approved customer tenant
 
-## Authentication Notes
-- Entra access uses interactive or device-code authentication by default.
-- Stored access tokens must target Microsoft Graph. When adding a token credential, include a Microsoft Graph audience such as `https://graph.microsoft.com`.
-- Username/password credentials can still be used for services that support them, but Entra access no longer relies on delegated username/password authentication.
-- Saved password credentials can still be selected in the UI for convenience, but Entra access will continue with interactive or device-code sign-in instead of delegated password auth.
+## Quick Start
 
-## Testing
-- A lightweight PowerShell validation framework is available under [`Tests/README.md`](Tests/README.md).
-- The test harness inventories every MAAD function, validates parse and load behavior automatically, runs safe smoke tests for selected helper and local-only functions, supports opt-in live checks for a small read-only subset, and generates Markdown and JSON reports showing which functions passed, failed, or still require manual live validation.
+Clone the repository, open an elevated Windows PowerShell 5.1 session, and launch the tool:
 
-## Wiki
-- Repo-local wiki pages are available under [`wiki/Home.md`](wiki/Home.md).
-- The wiki currently covers MAAD-AF execution flow, authentication and access types, feature-to-session dependencies, and the current structure/refactor plan.
+```powershell
+git clone https://github.com/dancrossley/MAAD-AF.git
+cd .\MAAD-AF
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\MAAD_Attack.ps1
+```
 
-## Features
-- Attack emulation tool
-- Fully interactive (no-commands) workflow
-- Zero-setup deployment
-- Ability to revert actions for post-testing cleanup
-- Leverage MITRE ATT&CK
-- Emulate post-compromise attack techniques
-- Attack techniques for Entra ID (Azure AD)
-- Attack techniques for Exchange Online
-- Attack techniques for Teams
-- Attack techniques for SharePoint
-- Attack techniques for eDiscovery
+On first launch, MAAD-VF checks for and installs the required Entra, Graph, Exchange, Teams, SharePoint, and compliance modules.
 
-## MAAD-AF Techniques
-- Recon data from various Microsoft services
-- Backdoor Account Setup
-- Trusted Network Modification
-- Mailbox Audit Bypass
-- Disable Anti-Phishing in Exchange
-- Mailbox Deletion Rule Setup
-- Exfiltration through Mail Forwarding
-- Gain User Mailbox Access
-- Setup External Teams Access
-- Exploit Cross Tenant Synchronization 
-- eDiscovery exploitation for data recon & exfil
-- Bruteforce credentials
-- MFA Manipulation
-- User Account Deletion
-- SharePoint exploitation for data recon & exfil
-- [More...](https://openrec0n.github.io/maad-af-docs/)
+## Environment Hygiene
 
-## Contribute
- - Thanks for considering contributing to MAAD-AF! Your contributions will help make MAAD-AF better.
- - Submit your PR to the main branch.
- - Submit bugs & issues directly to [GitHub Issues](https://github.com/vectra-ai-research/MAAD-AF/issues)
- - Share ideas in [GitHub Discussions](https://github.com/vectra-ai-research/MAAD-AF/discussions)
+Ideally start with a clean Windows VM snapshot. If that is not possible, clean the PowerShell environment before each operator run:
 
-## Contact
-If you found MAAD-AF useful, want to share an interesting use-case or idea - reach out & share them
- - Maintainer : [Arpan Sarkar](https://www.linkedin.com/in/arpan-sarkar/)
- - Email : [MAAD-AF@vectra.ai](mailto:maad-af@vectra.ai)
+1. Close all Windows Terminal and PowerShell windows that were previously used for MAAD.
+2. Open one fresh elevated Windows PowerShell 5.1 session.
+3. Confirm no old modules are already loaded:
+
+```powershell
+Get-Module Microsoft.Graph*,Microsoft.Entra*,Az*,ExchangeOnlineManagement,MicrosoftTeams,PnP.PowerShell
+```
+
+4. If you suspect old Graph versions persist, list installed versions and remove the older copies before launching MAAD-VF:
+
+```powershell
+Get-InstalledModule Microsoft.Graph.Authentication -AllVersions | Sort Version
+Get-InstalledModule Microsoft.Graph.Users -AllVersions | Sort Version
+Get-InstalledModule Microsoft.Graph.Groups -AllVersions | Sort Version
+Get-InstalledModule Microsoft.Graph.Applications -AllVersions | Sort Version
+Get-InstalledModule Microsoft.Graph.Identity.SignIns -AllVersions | Sort Version
+```
+
+5. Relaunch MAAD-VF from that same fresh session.
+
+If the environment has been heavily used for previous auth or module troubleshooting, a reboot is often faster and safer than trying to clean up partially loaded assemblies in-place.
+
+## Example Operator Sequence
+
+The sequence below is a simple example of how an operator can run a real-world attack chain using MAAD. Use only approved test users, groups, policies, and mailboxes, and complete cleanup afterwards.
+
+1. `Access > Establish Access - Entra`
+2. `Account > Deploy Backdoor Account`
+3. `Account > Assign Entra Role to Account`
+4. `Entra > Modify Trusted IP Config`
+5. `Access > Establish Access - Exchange Online`
+6. `Exchange > Disable Mailbox Auditing`
+7. `Exchange > Disable Anti-Phishing Policy`
+8. `Account > Reset Password`
+9. `Access > Establish Access - Compliance (eDiscovery)`
+10. `Compliance > Launch New eDiscovery Search`
+11. `Account > Disable Account MFA`
+
+## Testing & Safety Notes
+
+- repo-local wiki pages start at [Home.md](./wiki/Home.md)
+- automated and manual test documentation lives in [Tests/README.md](./Tests/README.md)
+- use only in lab, test, or explicitly approved customer environments
+- some workflows change tenant state and can affect access, policies, mailbox behaviour, or compliance data
+- many actions require manual verification and cleanup
+- always record the objects you changed during a run
+
+The current repository includes the upstream GPL v3 license in [LICENSE.md](./LICENSE.md)
