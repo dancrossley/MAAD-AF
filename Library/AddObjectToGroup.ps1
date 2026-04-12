@@ -12,7 +12,7 @@ function AddObjectToGroup {
     $target_group_id = $global:group_id
 
     if ([string]::IsNullOrWhiteSpace($target_account_id) -or [string]::IsNullOrWhiteSpace($target_group_id)) {
-        MAADWriteError "Resolved account or group ID is empty — cannot continue"
+        MAADWriteError "Resolved account or group ID is empty - cannot continue"
         MAADWriteInfo "account_id='$target_account_id' group_id='$target_group_id'"
         MAADPause
         return
