@@ -111,7 +111,6 @@ function AccessInfo{
         $logged_in_user = $entra_session_info.Account
 
         try {
-            Import-Module -Name Microsoft.Entra.Governance -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
             $account_roles = Get-EntraUserRole -UserId $logged_in_user -All -ErrorAction Stop
             foreach ($role in $account_roles) {
                 if ($role.DisplayName -notin "", $null) {
