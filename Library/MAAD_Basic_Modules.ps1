@@ -169,6 +169,11 @@ function RequiredModules {
             MAADWriteInfo "Microsoft.Graph modules will be loaded on demand to reduce Entra authentication conflicts"
             continue
         }
+        elseif ($module -like "Microsoft.Entra*") {
+            MAADWriteInfo "Skipping eager import -> $module"
+            MAADWriteInfo "Microsoft.Entra modules will be loaded on demand to reduce PowerShell 5.1 runtime conflicts"
+            continue
+        }
 
         #Remove any member of module from current run space
         try {
@@ -405,6 +410,7 @@ function EnterAccount ($input_prompt){
 
         if ($input_user_account.ToUpper() -eq "RECON" -or $input_user_account -eq "" -or $input_user_account -eq $null) {
             try {
+                Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
                 Write-Host ""
                 MAADWriteProcess "Recon -> Searching Accounts"
                 $all_users = Get-EntraUser -All -ErrorAction Stop | Select-Object DisplayName,UserPrincipalName,UserType
@@ -436,6 +442,7 @@ function ValidateAccount ($input_user_account){
     Write-Host ""
 
     try {
+        Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
         $check_account = @(Get-EntraUser -SearchString $input_user_account -ErrorAction Stop)
     }
     catch {
