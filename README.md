@@ -1,4 +1,4 @@
-# MAAD for Vectra (MAAD-VF)
+# MAAD for Vectra (MAAD-FV)
 ![MAAD_Logo](images/MAAD_AF.png)
 
 MAAD for Vectra (MAAD-VF) is a PowerShell-based Microsoft 365 and Entra attack emulation tool intended to execute realistic tenant actions which can be validated independently in Microsoft Entra and M365 portals, and in other detections such as Defender or SIEM. MAAD is optimised for interactive operator workflows instead of custom scripting and useful for demonstrating identity attack paths which Vectra can detect and help investigate.
