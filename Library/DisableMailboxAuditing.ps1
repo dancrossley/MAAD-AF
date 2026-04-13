@@ -2,11 +2,30 @@ function DisableMailboxAuditing{
 
     mitre_details("DisableMailboxAuditing")
     $allow_undo = $false
+
+    try {
+        $null = Get-Command Get-Mailbox -ErrorAction Stop
+        $null = Get-Command Get-MailboxAuditBypassAssociation -ErrorAction Stop
+        $null = Get-Command Set-MailboxAuditBypassAssociation -ErrorAction Stop
+    }
+    catch {
+        MAADWriteError "Required Exchange audit cmdlets are not available in the current session"
+        MAADWriteError $_.Exception.Message
+        WriteMAADExchangeSessionWarningIfNeeded
+        MAADWriteInfo "Re-establish Exchange Online access before using this option"
+        MAADPause
+        return
+    }
     
     EnterMailbox("`n[?] Enter mailbox to disable auditing for")
 
     #Enter mailbox to modify
     $target_account = $global:mailbox_address
+    if ($target_account -in "", $null) {
+        MAADWriteError "No mailbox was selected"
+        MAADPause
+        return
+    }
 
     try {
         MAADWriteProcess "Fetching mailbox current config"

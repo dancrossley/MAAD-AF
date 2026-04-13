@@ -36,6 +36,27 @@ function EstablishAccess ($target_service){
     }
 }
 
+function SetMAADExchangeSessionConnected {
+    $global:maad_exchange_session_available = $true
+    $global:maad_exchange_disconnected_for_compliance = $false
+}
+
+function SetMAADExchangeSessionDisconnectedForCompliance {
+    $global:maad_exchange_session_available = $false
+    $global:maad_exchange_disconnected_for_compliance = $true
+}
+
+function ClearMAADExchangeSessionState {
+    $global:maad_exchange_session_available = $false
+    $global:maad_exchange_disconnected_for_compliance = $false
+}
+
+function WriteMAADExchangeSessionWarningIfNeeded {
+    if ($global:maad_exchange_disconnected_for_compliance -eq $true) {
+        MAADWriteInfo "Compliance access disconnected Exchange Online; re-establish Exchange access before using Exchange modules"
+    }
+}
+
 function GetMAADEntraScopes {
     return @(
         "Application.Read.All",
@@ -355,6 +376,7 @@ function AccessExchangeOnline {
         try {
         #Attempt token authentication  
         Connect-ExchangeOnline -AadAccessToken $AccessToken -AccountId $AdminUsername -ShowBanner:$false -ErrorAction Stop | Out-Null
+        SetMAADExchangeSessionConnected
         MAADWriteSuccess "Established access -> ExchangeOnline"
         }
         catch {
@@ -363,6 +385,7 @@ function AccessExchangeOnline {
             try {
                 #Attempt basic authentication
                 Connect-ExchangeOnline -Credential $AdminCredential -WarningAction SilentlyContinue -ShowBanner:$false -ErrorAction Stop| Out-Null 
+                SetMAADExchangeSessionConnected
                 MAADWriteSuccess "Established access -> ExchangeOnline"
             }
             catch [Microsoft.Identity.Client.MsalUiRequiredException]{
@@ -373,6 +396,7 @@ function AccessExchangeOnline {
                     try {
                         #Attempt interactive authentication  
                         Connect-ExchangeOnline -ErrorAction Stop -ShowBanner:$false | Out-Null
+                        SetMAADExchangeSessionConnected
                         MAADWriteSuccess "Established access -> ExchangeOnline"
                     }
                     catch {
@@ -390,6 +414,7 @@ function AccessExchangeOnline {
                     try {
                         #Attempt interactive authentication  
                         Connect-ExchangeOnline -ErrorAction Stop -ShowBanner:$false | Out-Null
+                        SetMAADExchangeSessionConnected
                         MAADWriteSuccess "Established access -> ExchangeOnline"
                     }
                     catch {
@@ -406,6 +431,7 @@ function AccessExchangeOnline {
         try {
             #Attempt basic authentication
             Connect-ExchangeOnline -Credential $AdminCredential -WarningAction SilentlyContinue -ShowBanner:$false -ErrorAction Stop | Out-Null 
+            SetMAADExchangeSessionConnected
             MAADWriteSuccess "Established access -> ExchangeOnline"  
         }
         catch [Microsoft.Identity.Client.MsalUiRequiredException]{
@@ -416,6 +442,7 @@ function AccessExchangeOnline {
                 try {
                     #Attempt interactive authentication  
                     Connect-ExchangeOnline -ErrorAction Stop -ShowBanner:$false | Out-Null
+                    SetMAADExchangeSessionConnected
                     MAADWriteSuccess "Established access -> ExchangeOnline"
                 }
                 catch {
@@ -433,6 +460,7 @@ function AccessExchangeOnline {
                 try {
                     #Attempt interactive authentication  
                     Connect-ExchangeOnline -ErrorAction Stop -ShowBanner:$false | Out-Null
+                    SetMAADExchangeSessionConnected
                     MAADWriteSuccess "Established access -> ExchangeOnline"
                 }
                 catch {
@@ -718,6 +746,8 @@ function ConnectEdiscovery {
 
     try {
         Disconnect-ExchangeOnline -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+        SetMAADExchangeSessionDisconnectedForCompliance
+        MAADWriteInfo "Compliance access disconnected Exchange Online; re-establish Exchange access before using Exchange modules"
     }
     catch {
         # Do nothing.
@@ -791,6 +821,7 @@ function terminate_connection {
 
     try {
         Disconnect-ExchangeOnline -Confirm:$false | Out-Null
+        ClearMAADExchangeSessionState
     }
     catch {
         #do nothing

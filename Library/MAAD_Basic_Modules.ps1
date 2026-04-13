@@ -344,6 +344,8 @@ function InitializationChecks{
 
 function EnterMailbox ($input_prompt){
     ###This function takes user input and checks for its validity. If invalid, then executes recon to show available options.If valid, returns mailbox address($input_mailbox_address)
+    $global:mailbox_address = $null
+    $global:mailbox_found = $false
     $repeat = $false
     do {
         $input_mailbox_address = Read-Host -Prompt $input_prompt
@@ -360,6 +362,10 @@ function EnterMailbox ($input_prompt){
             }
             catch {
                 MAADWriteError "Failed to find mailboxes"
+                MAADWriteInfo "Ensure Exchange Online access is established in the current PowerShell session"
+                WriteMAADExchangeSessionWarningIfNeeded
+                $global:mailbox_address = $null
+                $global:mailbox_found = $false
                 $repeat = $false
             }
         }
