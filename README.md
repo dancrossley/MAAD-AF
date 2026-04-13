@@ -22,6 +22,6 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\MAAD_Attack.ps1
 ```
 
-On first launch, MAAD-VF checks for and installs the required Entra, Graph, Exchange, Teams, SharePoint, and compliance modules. See the Wiki pages for more details on getting started.
+On first launch, MAAD-VF checks for and installs the required Entra, Graph, Exchange, Teams, SharePoint, and compliance modules. See the [MAAD-AF wiki](https://github.com/dancrossley/MAAD-AF/wiki) for more details on getting started.
 
 The current repository includes the upstream GPL v3 license in [LICENSE.md](./LICENSE.md)
