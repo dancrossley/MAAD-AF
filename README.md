@@ -28,16 +28,16 @@ On first launch, MAAD-VF checks for and installs the required Entra, Graph, Exch
 
 The sequence below is a simple example of how an operator can run a real-world attack chain using MAAD. Use only approved test users, groups, policies, and mailboxes, and complete cleanup afterwards.
 
-1. `Access > Establish Access - Entra`
-2. `Account > Deploy Backdoor Account`
-3. `Account > Assign Entra Role to Account`
-4. `Entra > Modify Trusted IP Config`
-5. `Access > Establish Access - Exchange Online`
-6. `Exchange > Disable Mailbox Auditing`
-7. `Exchange > Disable Anti-Phishing Policy`
-8. `Account > Reset Password`
-9. `Access > Establish Access - Compliance (eDiscovery)`
-10. `Compliance > Launch New eDiscovery Search`
-11. `Account > Disable Account MFA`
+- `2. Access > 5. Establish Access - Entra`
+- `4. Account > 2. Deploy Backdoor Account`
+- `4. Account > 3. Assign Entra Role to Account`
+- `7. Entra > 1. Modify Trusted IP Config`
+- `2. Access > 7. Establish Access - Exchange Online`
+- `8. Exchange > 5. Disable Mailbox Auditing`
+- `8. Exchange > 6. Disable Anti-Phishing Policy`
+- `4. Account > 5. Reset Password`
+- `2. Access > 11. Establish Access - Compliance (eDiscovery)`
+- `11. Compliance > 1. Launch New eDiscovery Search`
+- `4. Account > 7. Disable Account MFA`
 
 The current repository includes the upstream GPL v3 license in [LICENSE.md](./LICENSE.md)
