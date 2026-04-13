@@ -5,15 +5,15 @@ function EstablishAccess ($target_service){
         UseCredential -InteractiveOnly
     }
     elseif ($target_service -in "entra", "azure_ad") {
-        UseCredential -AllowTokenOnly
+        UseCredential -AllowGraphTokenOrUsernameOnly
     }
     else {
         UseCredential
     }
     
     switch ($target_service) {
-        "entra"{AccessEntra $global:current_access_token}
-        "azure_ad"{AccessEntra $global:current_access_token}
+        "entra"{AccessEntra $global:current_access_token $global:current_username}
+        "azure_ad"{AccessEntra $global:current_access_token $global:current_username}
         "az"{AccessAzAccount $global:current_username $global:current_credentials $global:current_access_token}
         "exchange_online"{AccessExchangeOnline $global:current_username $global:current_credentials $global:current_access_token}
         "teams"{AccessTeams $global:current_username $global:current_credentials $global:current_access_token}
@@ -21,7 +21,7 @@ function EstablishAccess ($target_service){
         "sharepoint_admin_center"{AccessSharepointAdmin $global:current_username $global:current_credentials $global:current_access_token}
         "ediscovery"{ConnectEdiscovery $global:current_username $global:current_credentials}
         Default {
-            AccessEntra $global:current_access_token
+            AccessEntra $global:current_access_token $global:current_username
             AccessAzAccount $global:current_username $global:current_credentials $global:current_access_token
             AccessTeams $global:current_username $global:current_credentials $global:current_access_token
             AccessExchangeOnline $global:current_username $global:current_credentials $global:current_access_token
@@ -117,14 +117,28 @@ function GetMAADExceptionMessage ($ErrorRecord) {
 
 function AccessEntra{
     param (
-        $AccessToken
+        $AccessToken,
+        $ExpectedUsername
     )
+
+    try {
+        Disconnect-Entra | Out-Null
+        Start-Sleep -Milliseconds 500
+    }
+    catch {
+        # Do nothing.
+    }
 
     $graph_access_token = GetMAADValidGraphToken $AccessToken
     if ($graph_access_token -notin "", $null) {
         try {
             $secure_access_token = ConvertTo-SecureString -String $graph_access_token -AsPlainText -Force
             Connect-Entra -AccessToken $secure_access_token -NoWelcome -ErrorAction Stop | Out-Null
+            if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
+                Disconnect-Entra | Out-Null
+                MAADWriteError "Failed to establish access -> Entra"
+                return
+            }
             MAADWriteSuccess "Established access -> Entra"
             return
         }
@@ -136,23 +150,63 @@ function AccessEntra{
     }
 
     MAADWriteInfo "Entra access now uses Microsoft Entra PowerShell with Microsoft Graph permissions"
+    if ($ExpectedUsername -notin "", $null) {
+        MAADWriteInfo "Complete sign-in as $ExpectedUsername"
+    }
     MAADWriteProcess "Launching interactive Entra authentication window to continue"
 
     try {
-        Connect-Entra -Scopes (GetMAADEntraScopes) -NoWelcome -ErrorAction Stop | Out-Null
+        Connect-Entra -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
+        if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
+            Disconnect-Entra | Out-Null
+            MAADWriteError "Failed to establish access -> Entra"
+            return
+        }
         MAADWriteSuccess "Established access -> Entra"
     }
     catch {
         MAADWriteError (GetMAADExceptionMessage $_)
         MAADWriteInfo "Browser-based Entra authentication was not available. Switching to device code authentication"
         try {
-            Connect-Entra -UseDeviceCode -Scopes (GetMAADEntraScopes) -NoWelcome -ErrorAction Stop | Out-Null
+            if ($ExpectedUsername -notin "", $null) {
+                MAADWriteInfo "When prompted during device code authentication, sign in as $ExpectedUsername"
+            }
+            Connect-Entra -UseDeviceCode -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
+            if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
+                Disconnect-Entra | Out-Null
+                MAADWriteError "Failed to establish access -> Entra"
+                return
+            }
             MAADWriteSuccess "Established access -> Entra"
         }
         catch {
             MAADWriteError "Failed to establish access -> Entra"
             MAADWriteError (GetMAADExceptionMessage $_)
         }
+    }
+}
+
+function ConfirmMAADEntraIdentity ($ExpectedUsername) {
+    if ($ExpectedUsername -in "", $null) {
+        return $true
+    }
+
+    try {
+        $entra_context = Get-EntraContext -ErrorAction Stop
+        $connected_account = [string]$entra_context.Account
+
+        if ($connected_account -notin "", $null -and $connected_account.Trim().ToLower() -ne $ExpectedUsername.Trim().ToLower()) {
+            MAADWriteError "Connected Entra account does not match the selected credential"
+            MAADWriteInfo "Selected credential username: $ExpectedUsername"
+            MAADWriteInfo "Connected Entra account: $connected_account"
+            MAADWriteInfo "Retry and complete sign-in as the intended Entra account"
+            return $false
+        }
+
+        return $true
+    }
+    catch {
+        return $false
     }
 }
 
