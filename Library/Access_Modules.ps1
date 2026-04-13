@@ -122,7 +122,7 @@ function AccessEntra{
     )
 
     try {
-        Disconnect-Entra | Out-Null
+        Disconnect-Entra -ErrorAction SilentlyContinue 2>$null | Out-Null
         Start-Sleep -Milliseconds 500
     }
     catch {
@@ -135,7 +135,7 @@ function AccessEntra{
             $secure_access_token = ConvertTo-SecureString -String $graph_access_token -AsPlainText -Force
             Connect-Entra -AccessToken $secure_access_token -NoWelcome -ErrorAction Stop | Out-Null
             if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
-                Disconnect-Entra | Out-Null
+                Disconnect-Entra -ErrorAction SilentlyContinue 2>$null | Out-Null
                 MAADWriteError "Failed to establish access -> Entra"
                 return
             }
@@ -158,7 +158,7 @@ function AccessEntra{
     try {
         Connect-Entra -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
         if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
-            Disconnect-Entra | Out-Null
+            Disconnect-Entra -ErrorAction SilentlyContinue 2>$null | Out-Null
             MAADWriteError "Failed to establish access -> Entra"
             return
         }
@@ -173,7 +173,7 @@ function AccessEntra{
             }
             Connect-Entra -UseDeviceCode -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
             if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
-                Disconnect-Entra | Out-Null
+                Disconnect-Entra -ErrorAction SilentlyContinue 2>$null | Out-Null
                 MAADWriteError "Failed to establish access -> Entra"
                 return
             }
