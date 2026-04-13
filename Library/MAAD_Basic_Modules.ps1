@@ -23,23 +23,13 @@ function InitializeMAADPowerShellLimits {
     }
 }
 
-function WriteMAADEntraCompatibilityHint ($ErrorMessage) {
-    if ($ErrorMessage -in "", $null) {
-        return
-    }
-
-    if ($ErrorMessage -like "*AzureIdentityAccessTokenProvider*") {
-        MAADWriteInfo "The current PowerShell session has an incompatible Microsoft Entra / Microsoft Graph runtime mix"
-        MAADWriteInfo "Start a fresh Windows PowerShell 5.1 session and relaunch MAAD-FV so the Entra modules can load cleanly"
-    }
-}
-
 function RequiredModules {
     ###This function checks for required modules by MAAD and Installs them if unavailable. Some modules have specific version requirements specified in the dictionary values
     InitializeMAADPowerShellLimits
-    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Users" = "";"Microsoft.Entra.DirectoryManagement" = "";"Microsoft.Entra.Governance" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.9.0";"MicrosoftTeams" = "5.7.0";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0"}
+    $RequiredModules=@{"Az.Accounts" = "2.13.1";"Az.Resources" = "6.11.2"; "Microsoft.Entra" = "";"Microsoft.Entra.Applications" = "";"Microsoft.Entra.Groups" = "";"Microsoft.Entra.SignIns" = "";"Microsoft.Entra.Users" = "";"Microsoft.Entra.DirectoryManagement" = "";"Microsoft.Entra.Governance" = "";"Microsoft.Entra.Beta.SignIns" = "";"ExchangeOnlineManagement" = "3.9.0";"MicrosoftTeams" = "5.7.0";"Microsoft.Online.SharePoint.PowerShell" = "16.0.23710.12000";"PnP.PowerShell" = "1.12.0";"Microsoft.Graph.Authentication" = "";"Microsoft.Graph.Identity.SignIns" = "";"Microsoft.Graph.Applications" = "";"Microsoft.Graph.Users" = "";"Microsoft.Graph.Groups" = ""}
     $missing_modules = @{}
     $installed_modules = @{}
+    $graph_modules = @("Microsoft.Graph.Identity.SignIns","Microsoft.Graph.Applications","Microsoft.Graph.Users","Microsoft.Graph.Groups")
 
     #Check for available modules
     MAADWriteProcess "Checking for dependencies"
@@ -106,9 +96,11 @@ function RequiredModules {
 
             $modules_to_install = @($missing_modules.Keys | Sort-Object `
                 @{Expression = {
-                    if ($_ -eq "Microsoft.Entra") { 0 }
-                    elseif ($_ -like "Microsoft.Entra.*") { 1 }
-                    else { 2 }
+                    if ($_ -eq "Microsoft.Graph.Authentication") { 0 }
+                    elseif ($_ -like "Microsoft.Graph.*") { 1 }
+                    elseif ($_ -eq "Microsoft.Entra") { 2 }
+                    elseif ($_ -like "Microsoft.Entra.*") { 3 }
+                    else { 4 }
                 }}, `
                 @{Expression = { $_ }})
 
@@ -143,20 +135,38 @@ function RequiredModules {
 
     MAADWriteProcess "Modules installed -> $($installed_modules.Count) / $($RequiredModules.Count)"
 
+    foreach ($graph_module in $graph_modules) {
+        try {
+            $versions = @(Get-InstalledModule -Name $graph_module -AllVersions -ErrorAction Stop | Select-Object -ExpandProperty Version)
+            if ($versions.Count -gt 1) {
+                MAADWriteInfo "Multiple installed versions detected for $graph_module -> $($versions -join ', ')"
+            }
+        }
+        catch {
+            #Module can be intentionally missing if user skipped install.
+        }
+    }
+
     #Import all installed Modules
     MAADWriteProcess "Importing installed modules to current run space"
     $installed_module_names = @($installed_modules.Keys)
     $installed_module_names = @($installed_module_names | Sort-Object `
         @{Expression = {
-            if ($_ -like "Microsoft.Entra*") { 0 }
-            else { 1 }
+            if ($_ -like "Microsoft.Graph.*") { 0 }
+            elseif ($_ -like "Microsoft.Entra*") { 1 }
+            else { 2 }
         }}, `
         @{Expression = { $_ }})
 
     foreach ($module in $installed_module_names){
-        if ($module -like "Microsoft.Entra*") {
+        if ($module -eq "Microsoft.Graph.Authentication") {
+            MAADWriteInfo "Skipping eager import -> Microsoft.Graph.Authentication"
+            MAADWriteInfo "This dependency will be loaded on demand to reduce Entra authentication conflicts"
+            continue
+        }
+        elseif ($module -like "Microsoft.Graph.*") {
             MAADWriteInfo "Skipping eager import -> $module"
-            MAADWriteInfo "Microsoft Entra modules will be loaded on demand to reduce authentication/runtime conflicts"
+            MAADWriteInfo "Microsoft.Graph modules will be loaded on demand to reduce Entra authentication conflicts"
             continue
         }
 
@@ -192,7 +202,61 @@ function RequiredModules {
 } 
 
 function InitializeMAADEntraCompatibility {
-    InitializeMAADPowerShellLimits
+    try {
+        Import-Module -Name Microsoft.Entra -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing. Dependency checks or module autoload can handle installation state later.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.Applications -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.Groups -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.SignIns -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.DirectoryManagement -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.Governance -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.Beta.SignIns -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        # Do nothing.
+    }
 }
 
 function ClearActiveSessions {
@@ -341,7 +405,6 @@ function EnterAccount ($input_prompt){
 
         if ($input_user_account.ToUpper() -eq "RECON" -or $input_user_account -eq "" -or $input_user_account -eq $null) {
             try {
-                Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
                 Write-Host ""
                 MAADWriteProcess "Recon -> Searching Accounts"
                 $all_users = Get-EntraUser -All -ErrorAction Stop | Select-Object DisplayName,UserPrincipalName,UserType
@@ -351,7 +414,6 @@ function EnterAccount ($input_prompt){
             catch {
                 MAADWriteError "Failed to find account"
                 MAADWriteError $_.Exception.Message
-                WriteMAADEntraCompatibilityHint $_.Exception.Message
                 $repeat = $false
             }
         }
@@ -374,13 +436,11 @@ function ValidateAccount ($input_user_account){
     Write-Host ""
 
     try {
-        Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
         $check_account = @(Get-EntraUser -SearchString $input_user_account -ErrorAction Stop)
     }
     catch {
         MAADWriteError "Failed to search for account"
         MAADWriteError $_.Exception.Message
-        WriteMAADEntraCompatibilityHint $_.Exception.Message
         $global:account_found = $false
         return
     }
