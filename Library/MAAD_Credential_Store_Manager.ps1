@@ -174,7 +174,6 @@ function AddCredentials ($new_cred_type, $name, $new_username, $new_password, $n
 function UseCredential {
     param (
         [switch]$AllowTokenOnly,
-        [switch]$AllowGraphTokenOrUsernameOnly,
         [switch]$InteractiveOnly
     )
     ###This function sets the global variables global:current_username + global:current_password or global:current_access_token to use with modules that require creds for authentication
@@ -202,65 +201,6 @@ function UseCredential {
     }
     catch {
         MAADWriteError "MCS -> Can't Access Credential Store"
-    }
-
-    if ($AllowGraphTokenOrUsernameOnly) {
-        $graph_token_credentials = @()
-
-        if ($null -ne $available_credentials) {
-            $graph_token_credentials = @(
-                $available_credentials.PSObject.Properties | Where-Object {
-                    $_.Value.type -eq "token" -and $null -eq (GetMAADTokenValidationMessage $_.Value)
-                }
-            )
-        }
-
-        if ($graph_token_credentials.Count -gt 0) {
-            MAADWriteProcess "MCS -> Listing Microsoft Graph token credentials for Entra access"
-            $graph_token_credentials | Format-Table -Property @{Label="CID";Expression={$_.Name}}, @{Label="Cred Type";Expression={$_.Value.type}}, @{Label="Username / Audience";Expression={GetMAADCredentialSummaryValue $_.Value}} -Wrap
-
-            do{
-                $retrived_creds = $false
-                MAADWriteInfo "Select a Microsoft Graph token CID or enter [X] to continue with interactive sign-in"
-                $credential_choice = Read-Host -Prompt "`n[?] Enter Credential (CID / x)"
-                Write-Host ""
-
-                if ($credential_choice.Trim().ToLower() -eq "x") {
-                    break
-                }
-
-                foreach ($credential in $graph_token_credentials){
-                    if ($credential.Name -eq $credential_choice){
-                        $global:current_access_token = $credential.Value.token
-                        $global:current_access_token_audience = $credential.Value.audience
-                        if ($credential.Value.PSObject.Properties.Name -contains "tenantId") {
-                            $global:current_access_token_tenant_id = $credential.Value.tenantId
-                        }
-                        $retrived_creds = $true
-                        break
-                    }
-                }
-            }while($retrived_creds -eq $false)
-        }
-
-        if ($global:current_access_token -notin "", $null) {
-            MAADWriteProcess "MCS -> Retrieved Microsoft Graph token"
-            MAADWriteInfo "Entra access will use the selected Microsoft Graph token"
-            return
-        }
-
-        MAADWriteInfo "Entra access uses browser-based interactive authentication"
-        MAADWriteInfo "Saved password credentials are not used directly for Entra sign-in"
-        if ($global:maad_entra_run_identity -notin "", $null) {
-            MAADWriteInfo "Current MAAD-FV run identity: $global:maad_entra_run_identity"
-            MAADWriteInfo "Use the same Entra account for the whole MAAD-FV test run"
-            $global:current_username = $global:maad_entra_run_identity
-        }
-        else {
-            $global:current_username = Read-Host -Prompt "`n[?] Enter Username for Entra sign-in"
-        }
-        Write-Host ""
-        return
     }
 
     if ($null -ne $available_credentials){

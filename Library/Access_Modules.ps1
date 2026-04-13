@@ -5,15 +5,15 @@ function EstablishAccess ($target_service){
         UseCredential -InteractiveOnly
     }
     elseif ($target_service -in "entra", "azure_ad") {
-        UseCredential -AllowGraphTokenOrUsernameOnly
+        UseCredential -AllowTokenOnly
     }
     else {
         UseCredential
     }
     
     switch ($target_service) {
-        "entra"{AccessEntra $global:current_access_token $global:current_username}
-        "azure_ad"{AccessEntra $global:current_access_token $global:current_username}
+        "entra"{AccessEntra $global:current_access_token}
+        "azure_ad"{AccessEntra $global:current_access_token}
         "az"{AccessAzAccount $global:current_username $global:current_credentials $global:current_access_token}
         "exchange_online"{AccessExchangeOnline $global:current_username $global:current_credentials $global:current_access_token}
         "teams"{AccessTeams $global:current_username $global:current_credentials $global:current_access_token}
@@ -21,7 +21,7 @@ function EstablishAccess ($target_service){
         "sharepoint_admin_center"{AccessSharepointAdmin $global:current_username $global:current_credentials $global:current_access_token}
         "ediscovery"{ConnectEdiscovery $global:current_username $global:current_credentials}
         Default {
-            AccessEntra $global:current_access_token $global:current_username
+            AccessEntra $global:current_access_token
             AccessAzAccount $global:current_username $global:current_credentials $global:current_access_token
             AccessTeams $global:current_username $global:current_credentials $global:current_access_token
             AccessExchangeOnline $global:current_username $global:current_credentials $global:current_access_token
@@ -55,16 +55,6 @@ function WriteMAADExchangeSessionWarningIfNeeded {
     if ($global:maad_exchange_disconnected_for_compliance -eq $true) {
         MAADWriteInfo "Compliance access disconnected Exchange Online; re-establish Exchange access before using Exchange modules"
     }
-}
-
-function SetMAADEntraRunIdentity ($AccountName) {
-    if ($AccountName -notin "", $null) {
-        $global:maad_entra_run_identity = $AccountName
-    }
-}
-
-function ClearMAADEntraRunIdentity {
-    $global:maad_entra_run_identity = $null
 }
 
 function GetMAADEntraScopes {
@@ -125,61 +115,16 @@ function GetMAADExceptionMessage ($ErrorRecord) {
     return ($messages -join " | ")
 }
 
-function InitializeMAADEntraAccessModules {
-    try {
-        Import-Module -Name Microsoft.Entra.Authentication -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
-    }
-    catch {
-        MAADWriteError "Required Entra authentication module could not be loaded"
-        MAADWriteError $_.Exception.Message
-        return $false
-    }
-
-    try {
-        Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
-    }
-    catch {
-        MAADWriteError "Required Entra user module could not be loaded"
-        MAADWriteError $_.Exception.Message
-        return $false
-    }
-
-    return $true
-}
-
 function AccessEntra{
     param (
-        $AccessToken,
-        $ExpectedUsername
+        $AccessToken
     )
-
-    try {
-        Disconnect-Entra -ErrorAction SilentlyContinue 2>$null | Out-Null
-        Start-Sleep -Milliseconds 500
-    }
-    catch {
-        # Do nothing.
-    }
-
-    if (-not (InitializeMAADEntraAccessModules)) {
-        MAADWriteError "Failed to establish access -> Entra"
-        return
-    }
 
     $graph_access_token = GetMAADValidGraphToken $AccessToken
     if ($graph_access_token -notin "", $null) {
         try {
             $secure_access_token = ConvertTo-SecureString -String $graph_access_token -AsPlainText -Force
             Connect-Entra -AccessToken $secure_access_token -NoWelcome -ErrorAction Stop | Out-Null
-            if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
-                Disconnect-Entra -ErrorAction SilentlyContinue 2>$null | Out-Null
-                MAADWriteError "Failed to establish access -> Entra"
-                return
-            }
-            $entra_context = Get-EntraContext -ErrorAction SilentlyContinue
-            if ($null -ne $entra_context) {
-                SetMAADEntraRunIdentity ([string]$entra_context.Account)
-            }
             MAADWriteSuccess "Established access -> Entra"
             return
         }
@@ -191,68 +136,23 @@ function AccessEntra{
     }
 
     MAADWriteInfo "Entra access now uses Microsoft Entra PowerShell with Microsoft Graph permissions"
-    if ($global:maad_entra_run_identity -notin "", $null) {
-        MAADWriteInfo "Current MAAD-FV run identity: $global:maad_entra_run_identity"
-        if ($ExpectedUsername -in "", $null) {
-            $ExpectedUsername = $global:maad_entra_run_identity
-        }
-        MAADWriteInfo "MAAD-FV is intended to use a single Entra account per test run"
-        MAADWriteInfo "If you need to change Entra account, start a fresh PowerShell session and relaunch MAAD-FV"
-    }
-
-    if ($ExpectedUsername -notin "", $null) {
-        MAADWriteInfo "Complete sign-in as $ExpectedUsername"
-    }
     MAADWriteProcess "Launching interactive Entra authentication window to continue"
 
     try {
-        Connect-Entra -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
-        if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
-            Disconnect-Entra -ErrorAction SilentlyContinue 2>$null | Out-Null
-            MAADWriteError "Failed to establish access -> Entra"
-            return
-        }
-        $entra_context = Get-EntraContext -ErrorAction SilentlyContinue
-        if ($null -ne $entra_context) {
-            SetMAADEntraRunIdentity ([string]$entra_context.Account)
-        }
+        Connect-Entra -Scopes (GetMAADEntraScopes) -NoWelcome -ErrorAction Stop | Out-Null
         MAADWriteSuccess "Established access -> Entra"
     }
     catch {
         MAADWriteError (GetMAADExceptionMessage $_)
-        MAADWriteInfo "Browser-based Entra authentication failed"
-        MAADWriteInfo "Device code authentication is reserved for internal troubleshooting, not the standard MAAD-FV operator flow"
+        MAADWriteInfo "Browser-based Entra authentication was not available. Switching to device code authentication"
         try {
-            MAADWriteError "Failed to establish access -> Entra"
-            MAADWriteInfo "Retry in a fresh PowerShell session or use the internal troubleshooting flow if device code is required"
+            Connect-Entra -UseDeviceCode -Scopes (GetMAADEntraScopes) -NoWelcome -ErrorAction Stop | Out-Null
+            MAADWriteSuccess "Established access -> Entra"
         }
         catch {
             MAADWriteError "Failed to establish access -> Entra"
+            MAADWriteError (GetMAADExceptionMessage $_)
         }
-    }
-}
-
-function ConfirmMAADEntraIdentity ($ExpectedUsername) {
-    if ($ExpectedUsername -in "", $null) {
-        return $true
-    }
-
-    try {
-        $entra_context = Get-EntraContext -ErrorAction Stop
-        $connected_account = [string]$entra_context.Account
-
-        if ($connected_account -notin "", $null -and $connected_account.Trim().ToLower() -ne $ExpectedUsername.Trim().ToLower()) {
-            MAADWriteError "Connected Entra account does not match the intended MAAD-FV run identity"
-            MAADWriteInfo "Expected Entra account: $ExpectedUsername"
-            MAADWriteInfo "Connected Entra account: $connected_account"
-            MAADWriteInfo "Retry and complete sign-in as the intended Entra account in a fresh session if needed"
-            return $false
-        }
-
-        return $true
-    }
-    catch {
-        return $false
     }
 }
 
@@ -914,7 +814,6 @@ function terminate_connection {
     MAADWriteProcess "Closing all active connections"
     try {
         Disconnect-Entra | Out-Null
-        ClearMAADEntraRunIdentity
     }
     catch {
         #do nothing
