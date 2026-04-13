@@ -153,10 +153,10 @@ function AccessEntra{
     if ($ExpectedUsername -notin "", $null) {
         MAADWriteInfo "Complete sign-in as $ExpectedUsername"
     }
-    MAADWriteProcess "Launching interactive Entra authentication window to continue"
+    MAADWriteInfo "Using device code authentication for Entra sign-in to avoid embedded terminal browser/WAM issues"
 
     try {
-        Connect-Entra -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
+        Connect-Entra -UseDeviceCode -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
         if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
             Disconnect-Entra -ErrorAction SilentlyContinue 2>$null | Out-Null
             MAADWriteError "Failed to establish access -> Entra"
@@ -166,12 +166,9 @@ function AccessEntra{
     }
     catch {
         MAADWriteError (GetMAADExceptionMessage $_)
-        MAADWriteInfo "Browser-based Entra authentication was not available. Switching to device code authentication"
+        MAADWriteInfo "Device code Entra authentication failed. Retrying once with browser-based authentication"
         try {
-            if ($ExpectedUsername -notin "", $null) {
-                MAADWriteInfo "When prompted during device code authentication, sign in as $ExpectedUsername"
-            }
-            Connect-Entra -UseDeviceCode -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
+            Connect-Entra -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
             if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
                 Disconnect-Entra -ErrorAction SilentlyContinue 2>$null | Out-Null
                 MAADWriteError "Failed to establish access -> Entra"
