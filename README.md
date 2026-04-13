@@ -10,8 +10,7 @@ This repository is a separately maintained derivative of [vectra-ai-research/MAA
 - Windows host with PowerShell 5.1
 - Administrator rights and PowerShell Gallery access for dependency installation
 - Microsoft 365 / Entra test or approved customer tenant
-
-* Note: if you have previously run older versions MAAD on the same host, you may run into PowerShell module and dependency errors. Try to test using a new and clean VM. If that is not possible check out the guidance here: [Environment Hygiene](https://github.com/dancrossley/MAAD-AF/wiki#environment-hygiene)
+- Note: if you have previously run older versions MAAD on the same host, you may run into PowerShell module and dependency errors. Try to test using a new and clean VM. If that is not possible check out the guidance here: [Environment Hygiene](https://github.com/dancrossley/MAAD-AF/wiki#environment-hygiene)
 
 ## Quick Start
 
@@ -29,7 +28,7 @@ On first launch, MAAD-VF checks for and installs the required Entra, Graph, Exch
 On subsequent launches, use the following command to launch MAAD faster:
 
 ```powershell
-MAAD_Attack.ps1 -ForceBypassDependencyCheck
+.\MAAD_Attack.ps1 -ForceBypassDependencyCheck
 ```
 
 ## Example Operator Sequence
