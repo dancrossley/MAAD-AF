@@ -112,7 +112,7 @@ function AccessInfo{
         $logged_in_user = $entra_session_info.Account
 
         try {
-            Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+            Import-Module -Name Microsoft.Entra.Users -Force -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
             $logged_in_user_id = (Get-EntraUser -UserId $logged_in_user -ErrorAction Stop).Id
         }
         catch {
@@ -120,7 +120,7 @@ function AccessInfo{
         }
 
         try {
-            Import-Module -Name Microsoft.Entra.Governance -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+            Import-Module -Name Microsoft.Entra.Governance -Force -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
             $account_roles = Get-EntraUserRole -UserId $logged_in_user_id -All -ErrorAction Stop
             foreach ($role in $account_roles) {
                 if ($role.DisplayName -notin "", $null) {

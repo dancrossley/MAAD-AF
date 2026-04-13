@@ -120,6 +120,16 @@ function AccessEntra{
         $AccessToken
     )
 
+    try {
+        Import-Module -Name Microsoft.Entra.Authentication -Force -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+        Import-Module -Name Microsoft.Entra.Users -Force -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        MAADWriteError "Failed to load required Entra modules"
+        MAADWriteError (GetMAADExceptionMessage $_)
+        return
+    }
+
     $graph_access_token = GetMAADValidGraphToken $AccessToken
     if ($graph_access_token -notin "", $null) {
         try {
