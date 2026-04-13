@@ -139,14 +139,14 @@ function AccessEntra{
     MAADWriteProcess "Launching interactive Entra authentication window to continue"
 
     try {
-        Connect-Entra -Scopes (GetMAADEntraScopes) -NoWelcome -ErrorAction Stop | Out-Null
+        Connect-Entra -NoWelcome -ErrorAction Stop | Out-Null
         MAADWriteSuccess "Established access -> Entra"
     }
     catch {
         MAADWriteError (GetMAADExceptionMessage $_)
         MAADWriteInfo "Browser-based Entra authentication was not available. Switching to device code authentication"
         try {
-            Connect-Entra -UseDeviceCode -Scopes (GetMAADEntraScopes) -NoWelcome -ErrorAction Stop | Out-Null
+            Connect-Entra -UseDeviceCode -NoWelcome -ErrorAction Stop | Out-Null
             MAADWriteSuccess "Established access -> Entra"
         }
         catch {
