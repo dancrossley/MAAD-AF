@@ -25,8 +25,6 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 On first launch, MAAD-VF checks for and installs the required Entra, Graph, Exchange, Teams, SharePoint, and compliance modules. See the [MAAD-AF wiki](https://github.com/dancrossley/MAAD-AF/wiki) for more details on getting started.
 
-For `Access > Establish Access - Entra`, MAAD-VF now supports either a saved Microsoft Graph token or manual username entry followed by interactive/device-code sign-in. Saved password credentials remain available for other services, but they are no longer shown as selectable Entra sign-in options.
-
 On subsequent launches, use the following command to launch MAAD faster:
 
 ```powershell
@@ -48,5 +46,7 @@ The sequence below is a simple example of how an operator can run a real-world a
 - `2. Access > 11. Establish Access - Compliance (eDiscovery)`
 - `11. Compliance > 1. Launch New eDiscovery Search`
 - `4. Account > 7. Disable Account MFA`
+
+N.B. For `Access > Establish Access - Entra`, MAAD-VF now supports either a saved Microsoft Graph token or manual username entry followed by interactive/device-code sign-in. Saved password credentials remain available for other services, but they are no longer shown as selectable Entra sign-in options.
 
 The current repository includes the upstream GPL v3 license in [LICENSE.md](./LICENSE.md)
