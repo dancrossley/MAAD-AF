@@ -125,6 +125,28 @@ function GetMAADExceptionMessage ($ErrorRecord) {
     return ($messages -join " | ")
 }
 
+function InitializeMAADEntraAccessModules {
+    try {
+        Import-Module -Name Microsoft.Entra.Authentication -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        MAADWriteError "Required Entra authentication module could not be loaded"
+        MAADWriteError $_.Exception.Message
+        return $false
+    }
+
+    try {
+        Import-Module -Name Microsoft.Entra.Users -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+    }
+    catch {
+        MAADWriteError "Required Entra user module could not be loaded"
+        MAADWriteError $_.Exception.Message
+        return $false
+    }
+
+    return $true
+}
+
 function AccessEntra{
     param (
         $AccessToken,
@@ -137,6 +159,11 @@ function AccessEntra{
     }
     catch {
         # Do nothing.
+    }
+
+    if (-not (InitializeMAADEntraAccessModules)) {
+        MAADWriteError "Failed to establish access -> Entra"
+        return
     }
 
     $graph_access_token = GetMAADValidGraphToken $AccessToken
