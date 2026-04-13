@@ -57,6 +57,16 @@ function WriteMAADExchangeSessionWarningIfNeeded {
     }
 }
 
+function SetMAADEntraRunIdentity ($AccountName) {
+    if ($AccountName -notin "", $null) {
+        $global:maad_entra_run_identity = $AccountName
+    }
+}
+
+function ClearMAADEntraRunIdentity {
+    $global:maad_entra_run_identity = $null
+}
+
 function GetMAADEntraScopes {
     return @(
         "Application.Read.All",
@@ -139,6 +149,10 @@ function AccessEntra{
                 MAADWriteError "Failed to establish access -> Entra"
                 return
             }
+            $entra_context = Get-EntraContext -ErrorAction SilentlyContinue
+            if ($null -ne $entra_context) {
+                SetMAADEntraRunIdentity ([string]$entra_context.Account)
+            }
             MAADWriteSuccess "Established access -> Entra"
             return
         }
@@ -150,35 +164,43 @@ function AccessEntra{
     }
 
     MAADWriteInfo "Entra access now uses Microsoft Entra PowerShell with Microsoft Graph permissions"
+    if ($global:maad_entra_run_identity -notin "", $null) {
+        MAADWriteInfo "Current MAAD-FV run identity: $global:maad_entra_run_identity"
+        if ($ExpectedUsername -in "", $null) {
+            $ExpectedUsername = $global:maad_entra_run_identity
+        }
+        MAADWriteInfo "MAAD-FV is intended to use a single Entra account per test run"
+        MAADWriteInfo "If you need to change Entra account, start a fresh PowerShell session and relaunch MAAD-FV"
+    }
+
     if ($ExpectedUsername -notin "", $null) {
         MAADWriteInfo "Complete sign-in as $ExpectedUsername"
     }
-    MAADWriteInfo "Using device code authentication for Entra sign-in to avoid embedded terminal browser/WAM issues"
+    MAADWriteProcess "Launching interactive Entra authentication window to continue"
 
     try {
-        Connect-Entra -UseDeviceCode -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
+        Connect-Entra -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
         if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
             Disconnect-Entra -ErrorAction SilentlyContinue 2>$null | Out-Null
             MAADWriteError "Failed to establish access -> Entra"
             return
         }
+        $entra_context = Get-EntraContext -ErrorAction SilentlyContinue
+        if ($null -ne $entra_context) {
+            SetMAADEntraRunIdentity ([string]$entra_context.Account)
+        }
         MAADWriteSuccess "Established access -> Entra"
     }
     catch {
         MAADWriteError (GetMAADExceptionMessage $_)
-        MAADWriteInfo "Device code Entra authentication failed. Retrying once with browser-based authentication"
+        MAADWriteInfo "Browser-based Entra authentication failed"
+        MAADWriteInfo "Device code authentication is reserved for internal troubleshooting, not the standard MAAD-FV operator flow"
         try {
-            Connect-Entra -Scopes (GetMAADEntraScopes) -ContextScope Process -NoWelcome -ErrorAction Stop | Out-Null
-            if (-not (ConfirmMAADEntraIdentity $ExpectedUsername)) {
-                Disconnect-Entra -ErrorAction SilentlyContinue 2>$null | Out-Null
-                MAADWriteError "Failed to establish access -> Entra"
-                return
-            }
-            MAADWriteSuccess "Established access -> Entra"
+            MAADWriteError "Failed to establish access -> Entra"
+            MAADWriteInfo "Retry in a fresh PowerShell session or use the internal troubleshooting flow if device code is required"
         }
         catch {
             MAADWriteError "Failed to establish access -> Entra"
-            MAADWriteError (GetMAADExceptionMessage $_)
         }
     }
 }
@@ -193,10 +215,10 @@ function ConfirmMAADEntraIdentity ($ExpectedUsername) {
         $connected_account = [string]$entra_context.Account
 
         if ($connected_account -notin "", $null -and $connected_account.Trim().ToLower() -ne $ExpectedUsername.Trim().ToLower()) {
-            MAADWriteError "Connected Entra account does not match the selected credential"
-            MAADWriteInfo "Selected credential username: $ExpectedUsername"
+            MAADWriteError "Connected Entra account does not match the intended MAAD-FV run identity"
+            MAADWriteInfo "Expected Entra account: $ExpectedUsername"
             MAADWriteInfo "Connected Entra account: $connected_account"
-            MAADWriteInfo "Retry and complete sign-in as the intended Entra account"
+            MAADWriteInfo "Retry and complete sign-in as the intended Entra account in a fresh session if needed"
             return $false
         }
 
@@ -865,6 +887,7 @@ function terminate_connection {
     MAADWriteProcess "Closing all active connections"
     try {
         Disconnect-Entra | Out-Null
+        ClearMAADEntraRunIdentity
     }
     catch {
         #do nothing

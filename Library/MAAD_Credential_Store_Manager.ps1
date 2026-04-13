@@ -249,9 +249,16 @@ function UseCredential {
             return
         }
 
-        MAADWriteInfo "Entra access uses interactive or device code authentication"
+        MAADWriteInfo "Entra access uses browser-based interactive authentication"
         MAADWriteInfo "Saved password credentials are not used directly for Entra sign-in"
-        $global:current_username = Read-Host -Prompt "`n[?] Enter Username for Entra sign-in"
+        if ($global:maad_entra_run_identity -notin "", $null) {
+            MAADWriteInfo "Current MAAD-FV run identity: $global:maad_entra_run_identity"
+            MAADWriteInfo "Use the same Entra account for the whole MAAD-FV test run"
+            $global:current_username = $global:maad_entra_run_identity
+        }
+        else {
+            $global:current_username = Read-Host -Prompt "`n[?] Enter Username for Entra sign-in"
+        }
         Write-Host ""
         return
     }

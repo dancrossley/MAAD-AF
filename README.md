@@ -23,7 +23,7 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\MAAD_Attack.ps1
 ```
 
-On first launch, MAAD-VF checks for and installs the required Entra, Graph, Exchange, Teams, SharePoint, and compliance modules. See the [MAAD-AF wiki](https://github.com/dancrossley/MAAD-AF/wiki) for more details on getting started.
+On first launch, MAAD-FV checks for and installs the required Entra, Graph, Exchange, Teams, SharePoint, and compliance modules.
 
 On subsequent launches, use the following command to launch MAAD faster:
 
@@ -47,6 +47,6 @@ The sequence below is a simple example of how an operator can run a real-world a
 - `11. Compliance > 1. Launch New eDiscovery Search`
 - `4. Account > 7. Disable Account MFA`
 
-Note: For `Access > Establish Access - Entra`, MAAD-FV now supports either a saved Microsoft Graph token or manual username entry followed by device code sign-in. Saved password credentials remain available for other services, but they are no longer shown as selectable Entra sign-in options.
+Note: For `Access > Establish Access - Entra`, MAAD-FV now supports either a saved Microsoft Graph token or manual username entry followed by browser-based interactive sign-in. Saved password credentials remain available for other services, but they are no longer shown as selectable Entra sign-in options. MAAD-FV is intended to use a single Entra account per test run.
 
 The current repository includes the upstream GPL v3 license in [LICENSE.md](./LICENSE.md)
