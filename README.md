@@ -37,7 +37,7 @@ The sequence below is a simple example of how an operator can run a real-world a
 
 - `2. Access > 5. Establish Access - Entra`
 - `4. Account > 2. Deploy Backdoor Account`
-- `4. Account > 3. Assign Entra Role to Account`
+- `4. Account > 3. Assign Entra Role to Account` (e.g. Helpdesk Administrator)
 - `7. Entra > 1. Modify Trusted IP Config`
 - `2. Access > 7. Establish Access - Exchange Online`
 - `8. Exchange > 5. Disable Mailbox Auditing`
