@@ -147,8 +147,55 @@ function RequiredModules {
         }
     }
 
+    #Import all installed Modules
+    MAADWriteProcess "Importing installed modules to current run space"
+    $installed_module_names = @($installed_modules.Keys)
+    $installed_module_names = @($installed_module_names | Sort-Object `
+        @{Expression = {
+            if ($_ -like "Microsoft.Graph.*") { 0 }
+            elseif ($_ -like "Microsoft.Entra*") { 1 }
+            else { 2 }
+        }}, `
+        @{Expression = { $_ }})
+
+    foreach ($module in $installed_module_names){
+        if ($module -eq "Microsoft.Graph.Authentication") {
+            MAADWriteInfo "Skipping eager import -> Microsoft.Graph.Authentication"
+            MAADWriteInfo "This dependency will be loaded on demand to reduce Entra authentication conflicts"
+            continue
+        }
+        elseif ($module -like "Microsoft.Graph.*") {
+            MAADWriteInfo "Skipping eager import -> $module"
+            MAADWriteInfo "Microsoft.Graph modules will be loaded on demand to reduce Entra authentication conflicts"
+            continue
+        }
+
+        #Remove any member of module from current run space
+        try {
+            Remove-Module -Name $module -ErrorAction Stop
+        }
+        catch {
+            #Do nothing
+        }
+        
+        try {
+            if ($installed_modules[$module] -eq "") {
+                Import-Module -Name $module -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+            }
+            else {
+                Import-Module -Name $module -RequiredVersion $installed_modules[$module] -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+            }
+        }
+        catch {
+            MAADWriteError "Failed to import module"
+            MAADWriteProcess "Skipping module import -> $module"
+            if ($module -like "Microsoft.Graph.*" -or $module -like "Microsoft.Entra*") {
+                MAADWriteInfo $_.Exception.Message
+            }
+        }
+    }       
+
     MAADWriteProcess "Dependency check completed"
-    MAADWriteInfo "PowerShell modules will be loaded on demand during execution"
 
     #Prevents overwrite from any imported modules 
     $host.UI.RawUI.WindowTitle = "MAAD Attack Framework"

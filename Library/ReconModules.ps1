@@ -49,7 +49,6 @@ function MAADGetAllAADUsers ($download = $false){
     Write-Host ""
 
     try {
-        Import-Module -Name Microsoft.Entra.Users -Force -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
         MAADWriteProcess "Searching accounts in tenant"
         $all_accounts = Get-EntraUser -All -ErrorAction Stop
         

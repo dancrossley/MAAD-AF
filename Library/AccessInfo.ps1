@@ -102,7 +102,6 @@ function AccessInfo{
     #Session Info
     $tenant_id = $null
     $logged_in_user = $null
-    $logged_in_user_id = $null
     $account_role_name = @()
     $account_group_name = @()
     $account_owned_objects_name = @()
@@ -112,16 +111,7 @@ function AccessInfo{
         $logged_in_user = $entra_session_info.Account
 
         try {
-            Import-Module -Name Microsoft.Entra.Users -Force -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
-            $logged_in_user_id = (Get-EntraUser -UserId $logged_in_user -ErrorAction Stop).Id
-        }
-        catch {
-            $logged_in_user_id = $logged_in_user
-        }
-
-        try {
-            Import-Module -Name Microsoft.Entra.Governance -Force -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
-            $account_roles = Get-EntraUserRole -UserId $logged_in_user_id -All -ErrorAction Stop
+            $account_roles = Get-EntraUserRole -UserId $logged_in_user -All -ErrorAction Stop
             foreach ($role in $account_roles) {
                 if ($role.DisplayName -notin "", $null) {
                     $account_role_name += $role.DisplayName
@@ -131,7 +121,7 @@ function AccessInfo{
         catch {}
 
         try {
-            $account_membership = Get-EntraUserMembership -UserId $logged_in_user_id -All -ErrorAction Stop
+            $account_membership = Get-EntraUserMembership -UserId $logged_in_user -All -ErrorAction Stop
             foreach ($membership in $account_membership) {
                 if ($membership.'@odata.type' -eq "#microsoft.graph.group" -and $membership.DisplayName -notin "", $null) {
                     $account_group_name += $membership.DisplayName
@@ -141,7 +131,7 @@ function AccessInfo{
         catch {}
 
         try {
-            $account_owned_objects = Get-EntraUserOwnedObject -UserId $logged_in_user_id -All -ErrorAction Stop
+            $account_owned_objects = Get-EntraUserOwnedObject -UserId $logged_in_user -All -ErrorAction Stop
             foreach ($object in $account_owned_objects) {
                 if ($object.DisplayName -notin "", $null) {
                     $account_owned_objects_name += $object.DisplayName
